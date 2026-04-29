@@ -35,6 +35,8 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+RUN chmod +x ./node_modules/.bin/prisma
 
 COPY --from=builder /app/public ./public
 
@@ -53,4 +55,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Roda as migrations e inicia o servidor
-CMD ["sh", "-c", "npx prisma db push --schema=./prisma/schema.prisma --accept-data-loss && node server.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma db push --schema=./prisma/schema.prisma --accept-data-loss && node server.js"]
