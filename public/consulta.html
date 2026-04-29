@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal do Cliente - Consulta de Parcelas</title>
+  <style>
+    :root {
+      --background: #0f172a;
+      --surface: #1e293b;
+      --surface-hover: #334155;
+      --primary: #8b5cf6;
+      --primary-hover: #7c3aed;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --border: #334155;
+      
+      --status-pending: #eab308;
+      --status-paid: #10b981;
+      --status-overdue: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--background);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      color: var(--text-secondary);
+    }
+
+    .grid-layout {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .quadro {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      min-height: 600px;
+    }
+
+    .quadro.construcao {
+      border: 1px dashed var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .icon-container {
+      background-color: rgba(139, 92, 246, 0.1);
+      padding: 16px;
+      border-radius: 50%;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .search-form {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .search-form input {
+      flex: 1;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background-color: var(--background);
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    .search-form button {
+      background-color: var(--primary);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.2s;
+    }
+
+    .search-form button:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .search-form button:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .acordeon-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background-color: var(--background);
+      margin-bottom: 12px;
+    }
+
+    .acordeon-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      background-color: transparent;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      transition: background-color 0.2s;
+    }
+
+    .acordeon-header:hover, .acordeon-header.active {
+      background-color: var(--surface-hover);
+    }
+
+    .acordeon-title {
+      font-size: 1rem;
+      font-weight: bold;
+      color: var(--text-primary);
+    }
+
+    .acordeon-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .acordeon-body {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      display: none;
+    }
+
+    .acordeon-item.active .acordeon-body {
+      display: block;
+    }
+
+    .parcelas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .parcela-card {
+      padding: 8px;
+      border-radius: 6px;
+      background-color: var(--surface);
+      text-align: center;
+    }
+
+    .empty-state {
+      color: var(--text-secondary);
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    /* Chevron icon placeholder using SVG */
+    .chevron {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: var(--text-secondary);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.3s;
+    }
+
+    .acordeon-item.active .chevron {
+      transform: rotate(180deg);
+    }
+
+    @media (max-width: 1024px) {
+      .grid-layout {
+        grid-template-columns: 1fr;
+      }
+      .quadro {
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <h1>Portal do Cliente</h1>
+      <p>Consulte a situação das suas parcelas de forma rápida e segura.</p>
+    </div>
+
+    <div class="grid-layout">
+      <!-- Quadro 1: Consulta -->
+      <div class="quadro">
+        <h2 style="font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          Consulta Parcelas
+        </h2>
+        
+        <form class="search-form" id="form-consulta">
+          <input type="text" id="input-cpf" placeholder="111.111.111-11" maxlength="14" autocomplete="off" />
+          <button type="submit" id="btn-consultar">Consultar</button>
+        </form>
+
+        <div id="resultado-container">
+          <!-- Os cards entrarão aqui -->
+        </div>
+      </div>
+
+      <!-- Quadro 2: Solicitar Pacote -->
+      <div class="quadro">
+        <h2 style="font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5c-1.1 0-2 .9-2 2v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+          Solicitar Pacote Formando
+        </h2>
+        
+        <form id="form-solicitacao" style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Evento *</label>
+              <select id="sol-evento" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;">
+                <option value="">Carregando eventos...</option>
+              </select>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Formando *</label>
+              <input type="text" id="sol-formando" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;" />
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Telefone Formando</label>
+              <input type="text" id="sol-tel-formando" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;" />
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">CPF Formando *</label>
+              <input type="text" id="sol-cpf-formando" required maxlength="14" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;" />
+            </div>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid var(--border); margin: 8px 0;" />
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Responsável Formando *</label>
+              <input type="text" id="sol-responsavel" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;" />
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Telefone Responsável</label>
+              <input type="text" id="sol-tel-responsavel" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;" />
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">CPF Responsável *</label>
+              <input type="text" id="sol-cpf-responsavel" required maxlength="14" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;" />
+            </div>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid var(--border); margin: 8px 0;" />
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Forma de Pagamento *</label>
+              <select id="sol-forma-pagamento" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;">
+                <option value="À Vista">À Vista</option>
+                <option value="Parcelado">Parcelado</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Parcelas *</label>
+              <input type="number" id="sol-parcelas" required min="1" max="24" value="1" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;" />
+            </div>
+          </div>
+          
+          <div id="solicitacao-msg" style="margin-top: 8px; font-size: 0.9rem; text-align: center;"></div>
+
+          <button type="submit" id="btn-solicitar" style="margin-top: 8px; background-color: var(--primary); color: #fff; padding: 12px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; transition: background-color 0.2s;">
+            Enviar Solicitação
+          </button>
+        </form>
+      </div>
+
+      <!-- Quadro 3: Solicitar Indispensável -->
+      <div class="quadro">
+        <h2 style="font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+          Solicitar Indispensável
+        </h2>
+        
+        <form id="form-indispensavel" style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Evento *</label>
+              <select id="ind-evento" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;">
+                <option value="">Carregando eventos...</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">CPF do Formando *</label>
+              <input type="text" id="ind-cpf-formando" required maxlength="14" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;" />
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">CPF do Responsável Financeiro *</label>
+              <input type="text" id="ind-cpf-responsavel" required maxlength="14" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;" />
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid var(--border); margin: 4px 0;" />
+            
+            <div>
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Produto *</label>
+              <select id="ind-produto" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;">
+                <option value="Indispensável Adulto">Indispensável Adulto</option>
+                <option value="Indispensável Infantil">Indispensável Infantil</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Quantidade *</label>
+              <input type="number" id="ind-quantidade" required min="1" value="1" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;" />
+            </div>
+          </div>
+          
+          <div style="background-color: rgba(16, 185, 129, 0.1); border: 1px solid var(--status-paid); padding: 12px; border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: var(--text-secondary); font-size: 0.9rem;">Total À Vista:</span>
+              <strong id="ind-valor-avista" style="color: #fff;">R$ 0,00</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+              <span style="color: var(--text-secondary); font-size: 0.9rem;">Total Parcelado:</span>
+              <strong id="ind-valor-parcelado" style="color: #fff;">R$ 0,00</strong>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Forma de Pagamento *</label>
+                <select id="ind-forma-pagamento" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;">
+                  <option value="À Vista">À Vista</option>
+                  <option value="Parcelado">Parcelado</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Parcelas *</label>
+                <input type="number" id="ind-parcelas" required min="1" max="24" value="1" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--background); color: #fff;" />
+              </div>
+            </div>
+          </div>
+
+          <div id="ind-msg" style="margin-top: 8px; font-size: 0.9rem; text-align: center;"></div>
+
+          <button type="submit" id="btn-indispensavel" style="margin-top: 8px; background-color: var(--primary); color: #fff; padding: 12px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; transition: background-color 0.2s;">
+            Solicitar Indispensável
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const inputCpf = document.getElementById('input-cpf');
+    const formConsulta = document.getElementById('form-consulta');
+    const btnConsultar = document.getElementById('btn-consultar');
+    const resultadoContainer = document.getElementById('resultado-container');
+
+    // Máscara de CPF
+    inputCpf.addEventListener('input', (e) => {
+      let value = e.target.value.replace(/\D/g, '');
+      value = value.replace(/(\d{3})(\d)/, '$1.$2');
+      value = value.replace(/(\d{3})(\d)/, '$1.$2');
+      value = value.replace(/(\d{3})(\d{1,2})/, '$1-$2');
+      e.target.value = value;
+    });
+
+    const getStatusInfo = (status) => {
+      switch(status) {
+        case 'PAGO': return { text: 'Pago', color: 'var(--status-paid)' };
+        case 'VENCIDO': return { text: 'Vencido', color: 'var(--status-overdue)' };
+        default: return { text: 'Pendente', color: 'var(--status-pending)' };
+      }
+    };
+
+    formConsulta.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const cpfBusca = inputCpf.value;
+      if(cpfBusca.length < 14) {
+        alert('Digite o CPF completo.');
+        return;
+      }
+
+      btnConsultar.disabled = true;
+      btnConsultar.innerText = 'Buscando...';
+      resultadoContainer.innerHTML = '';
+
+      try {
+        // ATENÇÃO: Como este HTML vai rodar em outro site, ele precisa saber onde o sistema principal está hospedado.
+        // Se o sistema principal (painel) estiver em https://meupainel.com, troque a URL abaixo para 'https://meupainel.com/api/boletos'
+        // Se você estiver testando na sua própria máquina, deixe 'http://localhost:3000/api/boletos'
+        const API_URL = 'http://localhost:3000/api/boletos'; 
+        
+        // Busca na API do backend
+        const res = await fetch(API_URL);
+        if (!res.ok) throw new Error('Falha na API');
+        const data = await res.json();
+        
+        const filtrados = data.filter(b => b.cpfFormando === cpfBusca || b.cpfResponsavel === cpfBusca);
+
+        if (filtrados.length === 0) {
+          resultadoContainer.innerHTML = '<p class="empty-state">Nenhum contrato encontrado para este CPF.</p>';
+        } else {
+          filtrados.forEach(boleto => {
+            const item = document.createElement('div');
+            item.className = 'acordeon-item';
+            
+            // HTML das Parcelas
+            let parcelasHtml = '';
+            if (boleto.parcelas && boleto.parcelas.length > 0) {
+              parcelasHtml = `<div class="parcelas-grid">` + boleto.parcelas.map(p => {
+                const info = getStatusInfo(p.status);
+                return `
+                  <div class="parcela-card" style="border: 1px solid ${info.color}">
+                    <span style="display:block; font-size:0.7rem; color:var(--text-secondary); margin-bottom:4px">Mês ${p.mesIndex + 1}</span>
+                    <span style="display:block; font-size:0.75rem; font-weight:bold; color:${info.color}">${info.text}</span>
+                  </div>
+                `;
+              }).join('') + `</div>`;
+            } else {
+              parcelasHtml = `<p style="font-size:0.85rem; color:var(--text-secondary);">Nenhuma parcela gerada.</p>`;
+            }
+
+            item.innerHTML = `
+              <button class="acordeon-header">
+                <div>
+                  <h3 class="acordeon-title">${boleto.produto}</h3>
+                  <p class="acordeon-subtitle">Formando: ${boleto.nomeFormando}</p>
+                </div>
+                <svg class="chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="acordeon-body">
+                <h4 style="font-size:0.9rem; color:var(--text-secondary); font-weight:bold;">Parcelas</h4>
+                ${parcelasHtml}
+              </div>
+            `;
+
+            // Lógica de click do acordeão
+            const headerBtn = item.querySelector('.acordeon-header');
+            headerBtn.addEventListener('click', () => {
+              item.classList.toggle('active');
+            });
+
+            resultadoContainer.appendChild(item);
+          });
+        }
+      } catch (error) {
+        console.error(error);
+        resultadoContainer.innerHTML = '<p class="empty-state">Erro ao buscar dados. Tente novamente mais tarde.</p>';
+      }
+
+      btnConsultar.disabled = false;
+      btnConsultar.innerText = 'Consultar';
+    });
+
+    // --- CARREGAMENTO DE EVENTOS ---
+    let eventosData = [];
+    async function loadEventos() {
+      try {
+        const res = await fetch('http://localhost:3000/api/eventos');
+        if (res.ok) {
+          eventosData = await res.json();
+          const optionsHtml = '<option value="">Selecione um Evento...</option>' + 
+            eventosData.map(ev => `<option value="${ev.nome}">${ev.nome}</option>`).join('');
+          
+          document.getElementById('sol-evento').innerHTML = optionsHtml;
+          document.getElementById('ind-evento').innerHTML = optionsHtml;
+        }
+      } catch (err) {
+        console.error('Erro ao buscar eventos', err);
+      }
+    }
+    loadEventos();
+
+    // Funções auxiliares para formatar moeda e atualizar os totais
+    const formatCurrency = (val) => val != null ? `R$ ${val.toFixed(2).replace('.', ',')}` : 'N/A';
+
+    // Atualiza Preços do Quadro 3 (Indispensáveis)
+    const updateIndispensavelPricing = () => {
+      const eventoNome = document.getElementById('ind-evento').value;
+      const produto = document.getElementById('ind-produto').value;
+      const quantidade = parseInt(document.getElementById('ind-quantidade').value) || 1;
+      
+      const evento = eventosData.find(ev => ev.nome === eventoNome);
+      const avistaEl = document.getElementById('ind-valor-avista');
+      const parceladoEl = document.getElementById('ind-valor-parcelado');
+
+      if (!evento) {
+        avistaEl.innerText = 'R$ 0,00';
+        parceladoEl.innerText = 'R$ 0,00';
+        return;
+      }
+
+      let unitAVista = 0;
+      let unitParcelado = 0;
+
+      if (produto === 'Indispensável Adulto') {
+        unitAVista = evento.valorIndispAdultoAVista || 0;
+        unitParcelado = evento.valorIndispAdultoParcelado || 0;
+      } else if (produto === 'Indispensável Infantil') {
+        unitAVista = evento.valorIndispInfantilAVista || 0;
+        unitParcelado = evento.valorIndispInfantilParcelado || 0;
+      }
+
+      avistaEl.innerText = formatCurrency(unitAVista * quantidade);
+      parceladoEl.innerText = formatCurrency(unitParcelado * quantidade);
+    };
+
+    // Listeners para os Quadros
+    document.getElementById('ind-evento').addEventListener('change', updateIndispensavelPricing);
+    document.getElementById('ind-produto').addEventListener('change', updateIndispensavelPricing);
+    document.getElementById('ind-quantidade').addEventListener('input', updateIndispensavelPricing);
+
+    // --- Lógica do Quadro 2: Solicitar Pacote ---
+    const formSolicitacao = document.getElementById('form-solicitacao');
+    const inputCpfFormando = document.getElementById('sol-cpf-formando');
+    const inputCpfResponsavel = document.getElementById('sol-cpf-responsavel');
+    const inputTelFormando = document.getElementById('sol-tel-formando');
+    const inputTelResponsavel = document.getElementById('sol-tel-responsavel');
+    const btnSolicitar = document.getElementById('btn-solicitar');
+    const solicitacaoMsg = document.getElementById('solicitacao-msg');
+
+    // Máscaras
+    const applyCpfMask = (e) => {
+      let value = e.target.value.replace(/\D/g, '');
+      value = value.replace(/(\d{3})(\d)/, '$1.$2');
+      value = value.replace(/(\d{3})(\d)/, '$1.$2');
+      value = value.replace(/(\d{3})(\d{1,2})/, '$1-$2');
+      e.target.value = value;
+    };
+
+    const applyTelMask = (e) => {
+      let value = e.target.value.replace(/\D/g, '');
+      value = value.replace(/^(\d{2})(\d)/g, '($1) $2');
+      value = value.replace(/(\d)(\d{4})$/, '$1-$2');
+      e.target.value = value;
+    };
+
+    inputCpfFormando.addEventListener('input', applyCpfMask);
+    inputCpfResponsavel.addEventListener('input', applyCpfMask);
+    inputTelFormando.addEventListener('input', applyTelMask);
+    inputTelResponsavel.addEventListener('input', applyTelMask);
+
+    formSolicitacao.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const payload = {
+        evento: document.getElementById('sol-evento').value,
+        nomeFormando: document.getElementById('sol-formando').value,
+        telefoneFormando: inputTelFormando.value,
+        cpfFormando: inputCpfFormando.value,
+        nomeResponsavel: document.getElementById('sol-responsavel').value,
+        telefoneResponsavel: inputTelResponsavel.value,
+        cpfResponsavel: inputCpfResponsavel.value,
+        formaPagamento: document.getElementById('sol-forma-pagamento').value,
+        parcelas: parseInt(document.getElementById('sol-parcelas').value) || 1
+      };
+
+      if(payload.cpfFormando.length < 14 || payload.cpfResponsavel.length < 14) {
+        solicitacaoMsg.style.color = 'var(--status-overdue)';
+        solicitacaoMsg.innerText = 'Preencha os CPFs completamente.';
+        return;
+      }
+
+      btnSolicitar.disabled = true;
+      btnSolicitar.innerText = 'Enviando...';
+      solicitacaoMsg.innerText = '';
+
+      try {
+        const SOLICITACAO_API_URL = 'http://localhost:3000/api/solicitacoes'; // Troque em prod
+
+        const res = await fetch(SOLICITACAO_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          solicitacaoMsg.style.color = 'var(--status-overdue)';
+          solicitacaoMsg.innerText = data.error || 'Erro ao enviar solicitação.';
+        } else {
+          solicitacaoMsg.style.color = 'var(--status-paid)';
+          solicitacaoMsg.innerText = 'Solicitação enviada com sucesso! Aguarde nosso contato.';
+          formSolicitacao.reset();
+        }
+      } catch (error) {
+        console.error(error);
+        solicitacaoMsg.style.color = 'var(--status-overdue)';
+        solicitacaoMsg.innerText = 'Erro de conexão com o servidor.';
+      }
+
+      btnSolicitar.disabled = false;
+      btnSolicitar.innerText = 'Enviar Solicitação';
+    });
+
+    // --- Lógica do Quadro 3: Solicitar Indispensável ---
+    const formIndispensavel = document.getElementById('form-indispensavel');
+    const inputIndCpfFormando = document.getElementById('ind-cpf-formando');
+    const inputIndCpfResponsavel = document.getElementById('ind-cpf-responsavel');
+    const btnIndispensavel = document.getElementById('btn-indispensavel');
+    const indMsg = document.getElementById('ind-msg');
+
+    inputIndCpfFormando.addEventListener('input', applyCpfMask);
+    inputIndCpfResponsavel.addEventListener('input', applyCpfMask);
+
+    formIndispensavel.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const cpfFormando = inputIndCpfFormando.value;
+      const cpfResponsavel = inputIndCpfResponsavel.value;
+
+      if(cpfFormando.length < 14 || cpfResponsavel.length < 14) {
+        indMsg.style.color = 'var(--status-overdue)';
+        indMsg.innerText = 'Preencha os CPFs completamente.';
+        return;
+      }
+
+      btnIndispensavel.disabled = true;
+      btnIndispensavel.innerText = 'Verificando...';
+      indMsg.innerText = '';
+
+      try {
+        // Buscar dados completos do boleto para preencher nome e telefone
+        const API_URL = 'http://localhost:3000/api/boletos';
+        const resBoletos = await fetch(API_URL);
+        if (!resBoletos.ok) throw new Error('Falha ao buscar boletos');
+        const boletos = await resBoletos.json();
+
+        // Encontrar um boleto onde os CPFs batem (formando + responsável)
+        const boletoRef = boletos.find(b => 
+          b.cpfFormando === cpfFormando && b.cpfResponsavel === cpfResponsavel
+        );
+
+        // Se não achou com os dois juntos, tenta achar separadamente
+        const boletoFormando = boletoRef || boletos.find(b => b.cpfFormando === cpfFormando);
+        const boletoResponsavel = boletoRef || boletos.find(b => b.cpfResponsavel === cpfResponsavel);
+
+        const payload = {
+          evento: document.getElementById('ind-evento').value,
+          formaPagamento: document.getElementById('ind-forma-pagamento').value,
+          parcelas: parseInt(document.getElementById('ind-parcelas').value) || 1,
+          cpfFormando: cpfFormando,
+          cpfResponsavel: cpfResponsavel,
+          nomeFormando: boletoFormando ? boletoFormando.nomeFormando : '',
+          telefoneFormando: boletoFormando ? boletoFormando.telefoneFormando : '',
+          nomeResponsavel: boletoResponsavel ? boletoResponsavel.nomeResponsavel : '',
+          telefoneResponsavel: boletoResponsavel ? boletoResponsavel.telefoneResponsavel : '',
+          produto: document.getElementById('ind-produto').value,
+          quantidade: document.getElementById('ind-quantidade').value
+        };
+
+        btnIndispensavel.innerText = 'Enviando...';
+
+        const SOLICITACAO_API_URL = 'http://localhost:3000/api/solicitacoes';
+        const res = await fetch(SOLICITACAO_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          indMsg.style.color = 'var(--status-overdue)';
+          indMsg.innerText = data.error || 'Erro ao enviar solicitação.';
+        } else {
+          indMsg.style.color = 'var(--status-paid)';
+          indMsg.innerText = 'Solicitação enviada com sucesso! Aguarde nosso contato.';
+          formIndispensavel.reset();
+        }
+      } catch (error) {
+        console.error(error);
+        indMsg.style.color = 'var(--status-overdue)';
+        indMsg.innerText = 'Erro de conexão com o servidor.';
+      }
+
+      btnIndispensavel.disabled = false;
+      btnIndispensavel.innerText = 'Solicitar Indispensável';
+    });
+  </script>
+</body>
+</html>

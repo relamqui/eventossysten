@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Boleto {
+  id                  Int       @id @default(autoincrement())
+  nomeFormando        String?
+  telefoneFormando    String?
+  cpfFormando         String?
+  nomeResponsavel     String?
+  telefoneResponsavel String?
+  cpfResponsavel      String?
+  temporada           String?
+  produto             String?
+  quantidade          String?
+  numeroParcelas      String?
+  evento              String?
+  pagadorOriginal     String?
+
+  parcelas            Parcela[]
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model Parcela {
+  id             Int      @id @default(autoincrement())
+  boletoId       Int
+  mesIndex       Int      // 0 to 11
+  status         String   @default("PENDENTE") // PENDENTE, PAGO, VENCIDO, BAIXADO (amortização), QUITADO (quitação de atraso)
+  dataVencimento String?  // formato "2026-05" (YYYY-MM)
+  observacao     String?  // Ex: "Amortização em lote (3 parcelas)", "Quitação de atraso"
+
+  boleto    Boleto   @relation(fields: [boletoId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([boletoId, mesIndex])
+}
+
+model Evento {
+  id                         Int      @id @default(autoincrement())
+  nome                       String   @unique
+  dataEvento                 String?
+  temporada                  String?
+  tipo                       String?  // '9°', '3°', 'faculdade'
+  curso                      String?
+  valorPacoteAVista            Float?
+  valorPacoteParcelado         Float?
+  valorIndispAdultoAVista      Float?
+  valorIndispAdultoParcelado   Float?
+  valorIndispInfantilAVista    Float?
+  valorIndispInfantilParcelado Float?
+  informacoes                String?
+  contratoCaminho            String?
+  zapsignTemplateId          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Usuario {
+  id              Int      @id @default(autoincrement())
+  nome            String
+  username        String   @unique
+  password        String
+  isAdmin         Boolean  @default(false)
+  permBoletos     Boolean  @default(false)
+  permContratos   Boolean  @default(false)
+  permFinanceiro  Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SolicitacaoContrato {
+  id                  Int      @id @default(autoincrement())
+  nomeResponsavel     String?
+  telefoneResponsavel String?
+  cpfResponsavel      String?
+  nomeFormando        String?
+  telefoneFormando    String?
+  cpfFormando         String?
+  produto             String   @default("Pacote Formando")
+  quantidade          Int      @default(1)
+  evento              String?
+  formaPagamento      String?
+  parcelas            Int      @default(1)
+  status              String   @default("PENDENTE") // PENDENTE, APROVADO, REJEITADO
+  zapsignDocToken     String?
+  zapsignDocStatus    String?  // Ex: "pending", "signed"
+  zapsignSignUrl      String?
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model ConfiguracaoSistema {
+  id              Int      @id @default(autoincrement())
+  zapsignToken    String?
+  zapsignAmbiente String   @default("TESTE") // TESTE ou PRODUCAO
+  urlPublica      String?  // ngrok url para a zapsign puxar o docx
+
+  updatedAt       DateTime @updatedAt
+}

@@ -1,0 +1,73 @@
+:root {
+  --background: #09090b;
+  --surface: #18181b;
+  --surface-hover: #27272a;
+  --border: #27272a;
+  --primary: #8b5cf6; /* Violet */
+  --primary-hover: #7c3aed;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  
+  --status-paid: #22c55e;
+  --status-overdue: #ef4444;
+  --status-pending: #3f3f46;
+  
+  --sidebar-width: 260px;
+  --sidebar-width-collapsed: 72px;
+  --transition-speed: 0.3s;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-hover);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border);
+}
+
+.main-content {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  transition: margin-left var(--transition-speed) ease;
+  min-height: 100vh;
+  width: calc(100% - var(--sidebar-width));
+}
+
+body.sidebar-collapsed .main-content {
+  margin-left: var(--sidebar-width-collapsed);
+  width: calc(100% - var(--sidebar-width-collapsed));
+}

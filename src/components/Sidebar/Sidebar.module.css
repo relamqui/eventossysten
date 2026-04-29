@@ -1,0 +1,107 @@
+.sidebar {
+  width: var(--sidebar-width);
+  height: 100vh;
+  background-color: var(--surface);
+  border-right: 1px solid var(--border);
+  transition: width var(--transition-speed) ease;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-width-collapsed);
+}
+
+.header {
+  height: 80px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.collapsed .header {
+  padding: 0;
+  justify-content: center;
+}
+
+.toggleBtn {
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.toggleBtn:hover {
+  background-color: var(--surface-hover);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 12px;
+  gap: 8px;
+  flex: 1;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.navItem:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.navItem.active {
+  background-color: rgba(139, 92, 246, 0.1); /* Violet primary with opacity */
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.navItem.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 60%;
+  width: 4px;
+  background-color: var(--primary);
+  border-radius: 0 4px 4px 0;
+}
+
+.icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.label {
+  opacity: 1;
+  transition: opacity var(--transition-speed) ease;
+}
+
+.collapsed .label {
+  opacity: 0;
+  pointer-events: none;
+}
