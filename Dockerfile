@@ -48,9 +48,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 
 EXPOSE 3000
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-# Note: We run prisma db push in the build script of the VPS or via CI/CD.
-# We just start the app here.
-CMD ["node", "server.js"]
+# Roda as migrations e inicia o servidor
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node server.js"]
