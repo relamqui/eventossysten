@@ -424,7 +424,7 @@
         // ATENÇÃO: Como este HTML vai rodar em outro site, ele precisa saber onde o sistema principal está hospedado.
         // Se o sistema principal (painel) estiver em https://meupainel.com, troque a URL abaixo para 'https://meupainel.com/api/boletos'
         // Se você estiver testando na sua própria máquina, deixe 'http://localhost:3000/api/boletos'
-        const API_URL = 'http://localhost:3000/api/boletos'; 
+        const API_URL = 'https://mraeventos.synkaimra.com.br/api/boletos'; 
         
         // Busca na API do backend
         const res = await fetch(API_URL);
@@ -492,7 +492,7 @@
     let eventosData = [];
     async function loadEventos() {
       try {
-        const res = await fetch('http://localhost:3000/api/eventos');
+        const res = await fetch('https://mraeventos.synkaimra.com.br/api/eventos');
         if (res.ok) {
           eventosData = await res.json();
           const optionsHtml = '<option value="">Selecione um Evento...</option>' + 
@@ -602,7 +602,7 @@
       solicitacaoMsg.innerText = '';
 
       try {
-        const SOLICITACAO_API_URL = 'http://localhost:3000/api/solicitacoes'; // Troque em prod
+        const SOLICITACAO_API_URL = 'https://mraeventos.synkaimra.com.br/api/solicitacoes';
 
         const res = await fetch(SOLICITACAO_API_URL, {
           method: 'POST',
@@ -658,7 +658,7 @@
 
       try {
         // Buscar dados completos do boleto para preencher nome e telefone
-        const API_URL = 'http://localhost:3000/api/boletos';
+        const API_URL = 'https://mraeventos.synkaimra.com.br/api/boletos';
         const resBoletos = await fetch(API_URL);
         if (!resBoletos.ok) throw new Error('Falha ao buscar boletos');
         const boletos = await resBoletos.json();
@@ -688,7 +688,7 @@
 
         btnIndispensavel.innerText = 'Enviando...';
 
-        const SOLICITACAO_API_URL = 'http://localhost:3000/api/solicitacoes';
+        const SOLICITACAO_API_URL = 'https://mraeventos.synkaimra.com.br/api/solicitacoes';
         const res = await fetch(SOLICITACAO_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
