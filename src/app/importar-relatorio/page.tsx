@@ -48,6 +48,7 @@ export default function ImportarRelatorioPage() {
   const [baixadoMotivos, setBaixadoMotivos] = useState<Record<number, string>>({});
   const [baixadoConfirmando, setBaixadoConfirmando] = useState<number | null>(null);
   const [baixadoResolvidos, setBaixadoResolvidos] = useState<Set<number>>(new Set());
+  const [codigosIgnorados, setCodigosIgnorados] = useState<string[]>([]);
   
   // Estados para renegociação
   const [renegociandoIdx, setRenegociandoIdx] = useState<number | null>(null);
@@ -89,6 +90,7 @@ export default function ImportarRelatorioPage() {
         setAtualizados(data.atualizados || []);
         setAlertas(data.alertas || []);
         setAlertasBaixados(data.alertasBaixados || []);
+        setCodigosIgnorados(data.codigosNaoEncontrados || []);
         setStats({ totalPagadores: data.totalPagadores, totalBoletos: data.totalBoletos });
         setUploaded(true);
         const es: Record<number, any> = {};
@@ -378,6 +380,27 @@ export default function ImportarRelatorioPage() {
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Alertas</div>
             </div>
           </div>
+
+          {/* CÓDIGOS IGNORADOS */}
+          {codigosIgnorados.length > 0 && (
+            <div style={{ marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#ef4444', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <XCircle size={20} /> Códigos Ignorados — Não Encontrados ({codigosIgnorados.length})
+              </h2>
+              <div style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '16px', borderLeft: '4px solid #ef4444' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '12px' }}>
+                  Os seguintes códigos do sistema não foram encontrados no banco de dados e foram ignorados na importação. Verifique se os contratos já foram gerados.
+                </p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {codigosIgnorados.map(codigo => (
+                    <span key={codigo} style={{ padding: '6px 12px', backgroundColor: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', color: '#ef4444', fontWeight: 'bold', fontFamily: 'monospace' }}>
+                      {codigo}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ─── BAIXADOS POR SOLICITAÇÃO ─── */}
           {alertasBaixados.length > 0 && (

@@ -320,14 +320,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // Se houver códigos que deveriam existir mas não estão no banco → bloquear o arquivo
-    if (codigosNaoEncontrados.length > 0) {
-      return NextResponse.json({
-        erro: 'BOLETO_NAO_ENCONTRADO',
-        mensagem: `O arquivo contém ${codigosNaoEncontrados.length} código(s) de contrato (ex: ${codigosNaoEncontrados[0]}) que ainda não existem no banco de dados. Acesse o Controle de Contratos e gere o boleto destas solicitações antes de importar este relatório.`,
-        codigosNaoEncontrados,
-      }, { status: 422 });
-    }
+    // REMOVIDO: Bloqueio do arquivo por código não encontrado.
+    // Agora o arquivo passa, mas esses códigos são ignorados e avisados no frontend.
 
     // Se houver qualquer conflito → bloquear o arquivo inteiro
     if (conflitos.length > 0) {
@@ -344,6 +338,11 @@ export async function POST(req: Request) {
 
 
     for (const [pagadorOriginal, parcelas] of Object.entries(byPagador)) {
+      // Ignorar os que foram classificados como códigos do sistema não encontrados
+      if (codigosNaoEncontrados.includes(pagadorOriginal) || parcelas.some(p => codigosNaoEncontrados.includes(p.numDoc))) {
+        continue;
+      }
+
       const parts = pagadorOriginal.split(/\s*[-–]\s*/);
       let nomeResponsavel = parts[0]?.trim() || pagadorOriginal;
       let nomeFormandoRaw = parts.slice(1).join(' - ').trim();
@@ -524,6 +523,7 @@ export async function POST(req: Request) {
       novos,
       atualizados,
       alertasBaixados, // ← novo campo na resposta
+      codigosNaoEncontrados, // ← códigos ignorados
     });
 
   } catch (error: any) {
