@@ -41,6 +41,7 @@ export default function ImportarRelatorioPage() {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [editState, setEditState] = useState<Record<number, any>>({});
   const [importando, setImportando] = useState<number | null>(null);
+  const [ignorandoIdx, setIgnorandoIdx] = useState<number | null>(null);
   const [importados, setImportados] = useState<Set<number>>(new Set());
   const [alertaMotivos, setAlertaMotivos] = useState<Record<number, string>>({});
   const [alertaResolvidos, setAlertaResolvidos] = useState<Set<number>>(new Set());
@@ -153,6 +154,30 @@ export default function ImportarRelatorioPage() {
       else { const err = await res.json(); alert(`Erro: ${err.error}`); }
     } catch (e) { alert('Falha na conexão'); }
     setImportando(null);
+  };
+
+  const handleIgnorar = async (idx: number) => {
+    const p = novos[idx];
+    if (!confirm(`Tem certeza que deseja ignorar permanentemente o pagador "${p.pagadorOriginal}"? Ele não aparecerá mais em importações futuras.`)) return;
+    
+    setIgnorandoIdx(idx);
+    try {
+      const res = await fetch('/api/importar-relatorio/ignorar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pagadorOriginal: p.pagadorOriginal })
+      });
+      if (res.ok) {
+        setImportados(prev => new Set([...prev, idx])); // Esconde da lista
+        setCodigosIgnorados(prev => [...prev, p.pagadorOriginal]); // Adiciona na lista de ignorados do topo
+      } else {
+        const err = await res.json();
+        alert(`Erro: ${err.error}`);
+      }
+    } catch (e) {
+      alert('Falha na conexão');
+    }
+    setIgnorandoIdx(null);
   };
 
   const handleAbrirRenegociacao = (idx: number) => {
@@ -744,10 +769,16 @@ export default function ImportarRelatorioPage() {
                             </div>
                           ))}
 
-                          <button onClick={() => handleConfirmar(idx)} disabled={importando === idx}
-                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', backgroundColor: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '8px', cursor: importando === idx ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', opacity: importando === idx ? 0.7 : 1 }}>
-                            {importando === idx ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Importando...</> : <><CheckCircle size={16} /> Confirmar e Importar</>}
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                            <button onClick={() => handleIgnorar(idx)} disabled={importando === idx || ignorandoIdx === idx}
+                              style={{ flex: 1, padding: '12px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '8px', cursor: (importando === idx || ignorandoIdx === idx) ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', opacity: (importando === idx || ignorandoIdx === idx) ? 0.7 : 1 }}>
+                              {ignorandoIdx === idx ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Ignorar Pagador'}
+                            </button>
+                            <button onClick={() => handleConfirmar(idx)} disabled={importando === idx || ignorandoIdx === idx}
+                              style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', backgroundColor: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '8px', cursor: (importando === idx || ignorandoIdx === idx) ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', opacity: (importando === idx || ignorandoIdx === idx) ? 0.7 : 1 }}>
+                              {importando === idx ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Importando...</> : <><CheckCircle size={16} /> Confirmar e Importar</>}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>

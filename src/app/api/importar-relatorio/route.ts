@@ -177,11 +177,17 @@ export async function POST(req: Request) {
 
     const rows = data.slice(headerIdx + 1).filter(r => r && r.length > 5 && r[4]);
 
+    // Buscar pagadores ignorados no banco
+    const pagadoresIgnorados = await prisma.pagadorIgnorado.findMany();
+    const ignoradosSet = new Set(pagadoresIgnorados.map(p => p.pagador));
+
     // Agrupar por Pagador
     const byPagador: Record<string, any[]> = {};
     rows.forEach(r => {
       const pagador = String(r[4] || '').trim();
       if (!pagador) return;
+      if (ignoradosSet.has(pagador)) return; // IGNORAR se estiver na lista de ignorados
+
       if (!byPagador[pagador]) byPagador[pagador] = [];
       byPagador[pagador].push({
         numDoc: String(r[1] || ''),
