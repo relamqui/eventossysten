@@ -488,11 +488,17 @@ export async function POST(req: Request) {
         
         // 2. Analisa cada grupo de valor para identificar se pertence a um Código de Sistema
         for (const [valorBase, groupParcelas] of Object.entries(valueGroups)) {
-           // Ordena os numDocs para pegar o primeiro gerado (ex: 10107026 vem antes de 10107027)
-           const validCodes = groupParcelas
-             .map(p => p.numDoc)
-             .filter(d => d && regexContrato.test(d))
-             .sort();
+           // Ordena as parcelas pela data de vencimento (a parcela mais antiga é a base)
+           const validParcelas = groupParcelas
+             .filter(p => p.numDoc && regexContrato.test(p.numDoc))
+             .sort((a, b) => {
+               const dtA = parseVencimento(a.vencimento);
+               const dtB = parseVencimento(b.vencimento);
+               if (dtA && dtB) return dtA.getTime() - dtB.getTime();
+               return 0;
+             });
+
+           const validCodes = validParcelas.map(p => p.numDoc);
 
            // Se o pagadorOriginal bater com a regex (raro, mas possível caso a coluna 4 seja o ID)
            if (validCodes.length === 0 && pagadorOriginal && regexContrato.test(pagadorOriginal)) {
