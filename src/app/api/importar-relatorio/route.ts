@@ -475,75 +475,108 @@ export async function POST(req: Request) {
         // ─── Pagador NOVO — precisa classificação ────────────────────────────────
         
         const regexContrato = /^([123])0(\d+)0(\d+)0(\d{2})$/;
-        let isCodigoSistema = false;
-        let codigoInfo = null;
-        let codigoStr = '';
         
-        if (regexContrato.test(pagadorOriginal)) {
-          isCodigoSistema = true;
-          codigoStr = pagadorOriginal;
-        } else {
-          const docMatch = parcelas.find(p => p.numDoc && regexContrato.test(p.numDoc));
-          if (docMatch) {
-            isCodigoSistema = true;
-            codigoStr = docMatch.numDoc;
-          }
+        const parcelasByCode: Record<string, any[]> = {};
+        const parcelasNormais: any[] = [];
+
+        for (const p of parcelas) {
+           let code = null;
+           if (p.numDoc && regexContrato.test(p.numDoc)) code = p.numDoc;
+           else if (pagadorOriginal && regexContrato.test(pagadorOriginal)) code = pagadorOriginal;
+
+           if (code) {
+             if (!parcelasByCode[code]) parcelasByCode[code] = [];
+             parcelasByCode[code].push(p);
+           } else {
+             parcelasNormais.push(p);
+           }
         }
 
-        if (isCodigoSistema) {
-          const match = codigoStr.match(regexContrato);
-          if (match) {
-            const prodCode = match[1];
-            let produto = 'Indefinido';
-            if (prodCode === '1') produto = 'Pacote Formando';
-            if (prodCode === '2') produto = 'Indispensável Adulto';
-            if (prodCode === '3') produto = 'Indispensável Infantil';
-            
-            codigoInfo = {
-              codigo: codigoStr,
-              produto,
-              quantidade: parseInt(match[2], 10),
-              parcelas: parseInt(match[3], 10),
-              temporada: match[4]
-            };
-          }
+        for (const [code, codeParcelas] of Object.entries(parcelasByCode)) {
+           const match = code.match(regexContrato);
+           let codigoInfo = null;
+           if (match) {
+             const prodCode = match[1];
+             let produto = 'Indefinido';
+             if (prodCode === '1') produto = 'Pacote Formando';
+             if (prodCode === '2') produto = 'Indispensável Adulto';
+             if (prodCode === '3') produto = 'Indispensável Infantil';
+             codigoInfo = { codigo: code, produto, quantidade: parseInt(match[2], 10), parcelas: parseInt(match[3], 10), temporada: match[4] };
+           }
+
+           const valueGroups: Record<string, any[]> = {};
+           codeParcelas.forEach(p => {
+             const key = String(Math.round(p.valor));
+             if (!valueGroups[key]) valueGroups[key] = [];
+             valueGroups[key].push(p);
+           });
+
+           const grupos = Object.entries(valueGroups).map(([valorBase, groupParcelas]) => {
+             const totalValor = groupParcelas.reduce((sum, p) => sum + p.valor, 0);
+             return {
+               valorParcela: parseFloat(valorBase),
+               totalValor: Math.round(totalValor * 100) / 100,
+               numParcelas: groupParcelas.length,
+               produtoSugerido: codigoInfo?.produto || detectProduct(totalValor).produto,
+               confianca: 'high',
+               pagos: groupParcelas.filter(p => p.status === 'PAGO').length,
+               pendentes: groupParcelas.filter(p => p.status === 'PENDENTE').length,
+               vencidos: groupParcelas.filter(p => p.status === 'VENCIDO').length,
+               cancelados: groupParcelas.filter(p => p.status === 'CANCELADO').length,
+               parcelas: groupParcelas,
+             };
+           });
+
+           novos.push({
+             pagadorOriginal,
+             nomeResponsavel,
+             nomeFormando: nomeFormandoRaw,
+             eventoDetectado,
+             totalParcelas: codeParcelas.length,
+             temBaixados: codeParcelas.some((p: any) => p.status === 'CANCELADO'),
+             grupos,
+             isCodigoSistema: true,
+             codigoInfo
+           });
         }
-        // Se tem baixados, fica separado aguardando justificativa (conforme decisão do usuário)
-        const valueGroups: Record<string, any[]> = {};
-        parcelas.forEach(p => {
-          const key = String(Math.round(p.valor));
-          if (!valueGroups[key]) valueGroups[key] = [];
-          valueGroups[key].push(p);
-        });
 
-        const grupos = Object.entries(valueGroups).map(([valorBase, groupParcelas]) => {
-          const totalValor = groupParcelas.reduce((sum, p) => sum + p.valor, 0);
-          const detection = detectProduct(totalValor);
-          return {
-            valorParcela: parseFloat(valorBase),
-            totalValor: Math.round(totalValor * 100) / 100,
-            numParcelas: groupParcelas.length,
-            produtoSugerido: detection.produto,
-            confianca: detection.confianca,
-            pagos: groupParcelas.filter(p => p.status === 'PAGO').length,
-            pendentes: groupParcelas.filter(p => p.status === 'PENDENTE').length,
-            vencidos: groupParcelas.filter(p => p.status === 'VENCIDO').length,
-            cancelados: groupParcelas.filter(p => p.status === 'CANCELADO').length,
-            parcelas: groupParcelas,
-          };
-        });
+        if (parcelasNormais.length > 0) {
+           const valueGroups: Record<string, any[]> = {};
+           parcelasNormais.forEach(p => {
+             const key = String(Math.round(p.valor));
+             if (!valueGroups[key]) valueGroups[key] = [];
+             valueGroups[key].push(p);
+           });
 
-        novos.push({
-          pagadorOriginal,
-          nomeResponsavel,
-          nomeFormando: nomeFormandoRaw,
-          eventoDetectado,
-          totalParcelas: parcelas.length,
-          temBaixados: parcelas.some((p: any) => p.status === 'CANCELADO'),
-          grupos,
-          isCodigoSistema,
-          codigoInfo
-        });
+           const grupos = Object.entries(valueGroups).map(([valorBase, groupParcelas]) => {
+             const totalValor = groupParcelas.reduce((sum, p) => sum + p.valor, 0);
+             const detection = detectProduct(totalValor);
+             return {
+               valorParcela: parseFloat(valorBase),
+               totalValor: Math.round(totalValor * 100) / 100,
+               numParcelas: groupParcelas.length,
+               produtoSugerido: detection.produto,
+               confianca: detection.confianca,
+               pagos: groupParcelas.filter(p => p.status === 'PAGO').length,
+               pendentes: groupParcelas.filter(p => p.status === 'PENDENTE').length,
+               vencidos: groupParcelas.filter(p => p.status === 'VENCIDO').length,
+               cancelados: groupParcelas.filter(p => p.status === 'CANCELADO').length,
+               parcelas: groupParcelas,
+             };
+           });
+
+           novos.push({
+             pagadorOriginal,
+             nomeResponsavel,
+             nomeFormando: nomeFormandoRaw,
+             eventoDetectado,
+             totalParcelas: parcelasNormais.length,
+             temBaixados: parcelasNormais.some((p: any) => p.status === 'CANCELADO'),
+             grupos,
+             isCodigoSistema: false,
+             codigoInfo: null
+           });
+        }
       }
     }
 
