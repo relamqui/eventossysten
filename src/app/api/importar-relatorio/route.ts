@@ -476,44 +476,46 @@ export async function POST(req: Request) {
         
         const regexContrato = /^([123])0(\d+)0(\d+)0(\d{2})$/;
         
-        const parcelasByCode: Record<string, any[]> = {};
-        const parcelasNormais: any[] = [];
+        // 1. Primeiro, agrupa TODAS as parcelas do pagador pelo VALOR
+        const valueGroups: Record<string, any[]> = {};
+        parcelas.forEach(p => {
+          const key = String(Math.round(p.valor));
+          if (!valueGroups[key]) valueGroups[key] = [];
+          valueGroups[key].push(p);
+        });
 
-        for (const p of parcelas) {
-           let code = null;
-           if (p.numDoc && regexContrato.test(p.numDoc)) code = p.numDoc;
-           else if (pagadorOriginal && regexContrato.test(pagadorOriginal)) code = pagadorOriginal;
+        const normalValueGroups: any[][] = [];
+        
+        // 2. Analisa cada grupo de valor para identificar se pertence a um Código de Sistema
+        for (const [valorBase, groupParcelas] of Object.entries(valueGroups)) {
+           // Ordena os numDocs para pegar o primeiro gerado (ex: 10107026 vem antes de 10107027)
+           const validCodes = groupParcelas
+             .map(p => p.numDoc)
+             .filter(d => d && regexContrato.test(d))
+             .sort();
 
-           if (code) {
-             if (!parcelasByCode[code]) parcelasByCode[code] = [];
-             parcelasByCode[code].push(p);
-           } else {
-             parcelasNormais.push(p);
-           }
-        }
-
-        for (const [code, codeParcelas] of Object.entries(parcelasByCode)) {
-           const match = code.match(regexContrato);
-           let codigoInfo = null;
-           if (match) {
-             const prodCode = match[1];
-             let produto = 'Indefinido';
-             if (prodCode === '1') produto = 'Pacote Formando';
-             if (prodCode === '2') produto = 'Indispensável Adulto';
-             if (prodCode === '3') produto = 'Indispensável Infantil';
-             codigoInfo = { codigo: code, produto, quantidade: parseInt(match[2], 10), parcelas: parseInt(match[3], 10), temporada: match[4] };
+           // Se o pagadorOriginal bater com a regex (raro, mas possível caso a coluna 4 seja o ID)
+           if (validCodes.length === 0 && pagadorOriginal && regexContrato.test(pagadorOriginal)) {
+             validCodes.push(pagadorOriginal);
            }
 
-           const valueGroups: Record<string, any[]> = {};
-           codeParcelas.forEach(p => {
-             const key = String(Math.round(p.valor));
-             if (!valueGroups[key]) valueGroups[key] = [];
-             valueGroups[key].push(p);
-           });
+           const baseCode = validCodes.length > 0 ? validCodes[0] : null;
 
-           const grupos = Object.entries(valueGroups).map(([valorBase, groupParcelas]) => {
+           if (baseCode) {
+             // Este grupo de valor é um Contrato do Sistema! (Gera um bloco Verde)
+             const match = baseCode.match(regexContrato);
+             let codigoInfo = null;
+             if (match) {
+               const prodCode = match[1];
+               let produto = 'Indefinido';
+               if (prodCode === '1') produto = 'Pacote Formando';
+               if (prodCode === '2') produto = 'Indispensável Adulto';
+               if (prodCode === '3') produto = 'Indispensável Infantil';
+               codigoInfo = { codigo: baseCode, produto, quantidade: parseInt(match[2], 10), parcelas: parseInt(match[3], 10), temporada: match[4] };
+             }
+
              const totalValor = groupParcelas.reduce((sum, p) => sum + p.valor, 0);
-             return {
+             const grupoObj = {
                valorParcela: parseFloat(valorBase),
                totalValor: Math.round(totalValor * 100) / 100,
                numParcelas: groupParcelas.length,
@@ -525,34 +527,32 @@ export async function POST(req: Request) {
                cancelados: groupParcelas.filter(p => p.status === 'CANCELADO').length,
                parcelas: groupParcelas,
              };
-           });
 
-           novos.push({
-             pagadorOriginal,
-             nomeResponsavel,
-             nomeFormando: nomeFormandoRaw,
-             eventoDetectado,
-             totalParcelas: codeParcelas.length,
-             temBaixados: codeParcelas.some((p: any) => p.status === 'CANCELADO'),
-             grupos,
-             isCodigoSistema: true,
-             codigoInfo
-           });
+             novos.push({
+               pagadorOriginal,
+               nomeResponsavel,
+               nomeFormando: nomeFormandoRaw,
+               eventoDetectado,
+               totalParcelas: groupParcelas.length,
+               temBaixados: groupParcelas.some((p: any) => p.status === 'CANCELADO'),
+               grupos: [grupoObj], // Apenas este grupo no bloco Verde
+               isCodigoSistema: true,
+               codigoInfo
+             });
+           } else {
+             // Sem código do sistema, envia para a fila de grupos "Normais"
+             normalValueGroups.push(groupParcelas);
+           }
         }
 
-        if (parcelasNormais.length > 0) {
-           const valueGroups: Record<string, any[]> = {};
-           parcelasNormais.forEach(p => {
-             const key = String(Math.round(p.valor));
-             if (!valueGroups[key]) valueGroups[key] = [];
-             valueGroups[key].push(p);
-           });
-
-           const grupos = Object.entries(valueGroups).map(([valorBase, groupParcelas]) => {
+        // 3. Se sobraram grupos normais (sem código), junta todos em um único bloco Amarelo
+        if (normalValueGroups.length > 0) {
+           const gruposNormaisObjs = normalValueGroups.map(groupParcelas => {
              const totalValor = groupParcelas.reduce((sum, p) => sum + p.valor, 0);
              const detection = detectProduct(totalValor);
+             const valorBase = Math.round(groupParcelas[0].valor);
              return {
-               valorParcela: parseFloat(valorBase),
+               valorParcela: parseFloat(String(valorBase)),
                totalValor: Math.round(totalValor * 100) / 100,
                numParcelas: groupParcelas.length,
                produtoSugerido: detection.produto,
@@ -565,14 +565,17 @@ export async function POST(req: Request) {
              };
            });
 
+           const totalParcelasNormais = normalValueGroups.reduce((acc, g) => acc + g.length, 0);
+           const temBaixadosNormais = normalValueGroups.some(g => g.some((p: any) => p.status === 'CANCELADO'));
+
            novos.push({
              pagadorOriginal,
              nomeResponsavel,
              nomeFormando: nomeFormandoRaw,
              eventoDetectado,
-             totalParcelas: parcelasNormais.length,
-             temBaixados: parcelasNormais.some((p: any) => p.status === 'CANCELADO'),
-             grupos,
+             totalParcelas: totalParcelasNormais,
+             temBaixados: temBaixadosNormais,
+             grupos: gruposNormaisObjs,
              isCodigoSistema: false,
              codigoInfo: null
            });
