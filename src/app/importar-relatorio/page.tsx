@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 type Parcela = { numDoc: string; nossoNum: string; vencimento: string; valor: number; liquidacao: number; situacaoOriginal: string; status: string };
 type Grupo = { valorParcela: number; totalValor: number; numParcelas: number; produtoSugerido: string; confianca: string; pagos: number; pendentes: number; vencidos: number; cancelados: number; parcelas: Parcela[] };
-type PagadorNovo = { pagadorOriginal: string; nomeResponsavel: string; nomeFormando: string; eventoDetectado: string; totalParcelas: number; temBaixados: boolean; grupos: Grupo[] };
+type PagadorNovo = { pagadorOriginal: string; nomeResponsavel: string; nomeFormando: string; eventoDetectado: string; totalParcelas: number; temBaixados: boolean; grupos: Grupo[]; isCodigoSistema?: boolean; codigoInfo?: { codigo: string; produto: string; quantidade: number; parcelas: number; temporada: string } };
 type Atualizado = { pagador: string; boletosAtualizados: number; parcelasAtualizadas: number };
 type Alerta = { tipo: string; pagador: string; mensagem: string; parcelas: Parcela[] };
 type DbParcelaRef = { id: number; mesIndex: number; status: string };
@@ -96,7 +96,17 @@ export default function ImportarRelatorioPage() {
         setUploaded(true);
         const es: Record<number, any> = {};
         (data.novos || []).forEach((p: PagadorNovo, i: number) => {
-          es[i] = { nomeResponsavel: p.nomeResponsavel, nomeFormando: p.nomeFormando, evento: '', grupos: p.grupos.map((g: Grupo) => ({ produto: g.produtoSugerido })) };
+          es[i] = { 
+            nomeResponsavel: p.nomeResponsavel, 
+            nomeFormando: p.nomeFormando, 
+            evento: '', 
+            grupos: p.grupos.map((g: Grupo) => ({ 
+              produto: (p.isCodigoSistema && p.codigoInfo) ? p.codigoInfo.produto : g.produtoSugerido,
+              qtdAdulto: 0,
+              qtdInfantil: 0,
+              qtdPacote: 0
+            })) 
+          };
         });
         setEditState(es);
         setImportados(new Set());
@@ -139,13 +149,36 @@ export default function ImportarRelatorioPage() {
     setBaixadoConfirmando(null);
   };
 
+  const handleMultiploChange = (idx: number, gi: number, field: string, value: number) => {
+    setEditState(prev => {
+      const newGrupos = [...(prev[idx]?.grupos || [])];
+      newGrupos[gi] = { ...newGrupos[gi], [field]: value };
+      return { ...prev, [idx]: { ...prev[idx], grupos: newGrupos } };
+    });
+  };
+
   const handleConfirmar = async (idx: number) => {
     const p = novos[idx];
     const es = editState[idx];
     if (!es) return;
     setImportando(idx);
     try {
-      const gruposPayload = p.grupos.map((g, gi) => ({ produto: es.grupos[gi]?.produto || g.produtoSugerido, parcelas: g.parcelas }));
+      const gruposPayload = p.grupos.map((g, gi) => {
+        const eg = es.grupos[gi];
+        let finalProd = eg?.produto || g.produtoSugerido;
+        let finalQtd = "1";
+        
+        if (finalProd === 'Múltiplos Produtos') {
+          const parts = [];
+          if (eg.qtdAdulto > 0) parts.push(`Indispensável Adulto (x${eg.qtdAdulto})`);
+          if (eg.qtdInfantil > 0) parts.push(`Indispensável Infantil (x${eg.qtdInfantil})`);
+          if (eg.qtdPacote > 0) parts.push(`Pacote Formando (x${eg.qtdPacote})`);
+          finalProd = parts.length > 0 ? parts.join(' + ') : 'Produto Misto Indefinido';
+          finalQtd = "Misto";
+        }
+        
+        return { produto: finalProd, quantidade: finalQtd, parcelas: g.parcelas };
+      });
       const res = await fetch('/api/importar-relatorio/confirmar', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pagadorOriginal: p.pagadorOriginal, nomeResponsavel: es.nomeResponsavel, nomeFormando: es.nomeFormando, evento: es.evento, grupos: gruposPayload })
@@ -651,14 +684,121 @@ export default function ImportarRelatorioPage() {
             </div>
           )}
 
-          {/* NOVOS — Precisam classificação */}
-          {novos.length > 0 && (
-            <div>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f59e0b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileText size={20} /> Novos Pagadores — Precisam Classificação ({novos.length - importados.size})
+          {/* NOVOS — CÓDIGOS DE SISTEMA */}
+          {novos.filter(n => n.isCodigoSistema).length > 0 && (
+            <div style={{ marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#10b981', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle size={20} /> Novos Contratos via Código do Sistema ({novos.filter(n => n.isCodigoSistema && !importados.has(novos.indexOf(n))).length})
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {novos.map((p, idx) => {
+                  if (!p.isCodigoSistema) return null;
+                  const isExpanded = expandedIdx === idx;
+                  const isImportado = importados.has(idx);
+                  const es = editState[idx] || {};
+
+                  if (isImportado) {
+                    return (
+                      <div key={idx} style={{ backgroundColor: 'var(--surface)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', padding: '14px', opacity: 0.6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <CheckCircle size={18} style={{ color: '#10b981' }} />
+                          <span style={{ fontWeight: 'bold', color: '#10b981' }}>Importado</span>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{p.pagadorOriginal}</span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={idx} style={{ backgroundColor: 'rgba(16,185,129,0.05)', border: '1px solid #10b981', borderRadius: '8px', overflow: 'hidden' }}>
+                      <button onClick={() => setExpandedIdx(isExpanded ? null : idx)}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', textAlign: 'left' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                          <CheckCircle size={18} style={{ color: '#10b981', flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#10b981' }}>Código Detectado: {p.codigoInfo?.codigo}</div>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-primary)', marginTop: '2px' }}>
+                              <strong style={{color: '#10b981'}}>Produto:</strong> {p.codigoInfo?.produto} | 
+                              <strong style={{color: '#10b981', marginLeft: '6px'}}>Qtd:</strong> {p.codigoInfo?.quantidade} | 
+                              <strong style={{color: '#10b981', marginLeft: '6px'}}>Parcelas:</strong> {p.codigoInfo?.parcelas}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '0.8rem' }}>Confirmar Evento</span>
+                          {isExpanded ? <ChevronUp size={18} color="#10b981" /> : <ChevronDown size={18} color="#10b981" />}
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(16,185,129,0.3)' }}>
+                          <div style={{ padding: '12px 0', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                            Por favor, confirme se os dados estão corretos e <strong>informe o Evento</strong>:
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Nome Responsável</label>
+                              <input value={es.nomeResponsavel || ''} onChange={e => setEditState(prev => ({ ...prev, [idx]: { ...prev[idx], nomeResponsavel: e.target.value } }))} style={inputStyle} />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Nome Formando</label>
+                              <input value={es.nomeFormando || ''} onChange={e => setEditState(prev => ({ ...prev, [idx]: { ...prev[idx], nomeFormando: e.target.value } }))} style={inputStyle} />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Evento (Obrigatório)</label>
+                              <select value={es.evento || ''} onChange={e => setEditState(prev => ({ ...prev, [idx]: { ...prev[idx], evento: e.target.value } }))} style={{...inputStyle, borderColor: '#10b981', borderWidth: '2px'}}>
+                                <option value="">Selecione o Evento...</option>
+                                {eventos.map(ev => <option key={ev.id} value={ev.nome}>{ev.nome}</option>)}
+                              </select>
+                            </div>
+                          </div>
+
+                          {p.grupos.map((g, gi) => (
+                            <div key={gi} style={{ marginBottom: '16px', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', backgroundColor: 'var(--background)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {confiancaIcon(g.confianca)}
+                                  <span style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>Grupo {gi + 1}: {g.numParcelas}x R${g.valorParcela.toFixed(2)} = R${g.totalValor.toFixed(2)}</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Produto Confirmado:</span>
+                                  <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#10b981' }}>{es.grupos?.[gi]?.produto}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                            <button onClick={() => handleIgnorar(idx)} disabled={importando === idx || ignorandoIdx === idx}
+                              style={{ flex: 1, padding: '12px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '8px', cursor: (importando === idx || ignorandoIdx === idx) ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', opacity: (importando === idx || ignorandoIdx === idx) ? 0.7 : 1 }}>
+                              {ignorandoIdx === idx ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Ignorar Pagador'}
+                            </button>
+                            <button onClick={() => {
+                                if (!es.evento) { alert('Você precisa selecionar o evento para confirmar.'); return; }
+                                handleConfirmar(idx);
+                              }} disabled={importando === idx || ignorandoIdx === idx}
+                              style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: (importando === idx || ignorandoIdx === idx) ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', opacity: (importando === idx || ignorandoIdx === idx) ? 0.7 : 1 }}>
+                              {importando === idx ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Importando...</> : <><CheckCircle size={16} /> Confirmar e Importar</>}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* NOVOS — Precisam classificação */}
+          {novos.filter(n => !n.isCodigoSistema).length > 0 && (
+            <div>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f59e0b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText size={20} /> Novos Pagadores — Precisam Classificação ({novos.filter(n => !n.isCodigoSistema && !importados.has(novos.indexOf(n))).length})
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {novos.map((p, idx) => {
+                  if (p.isCodigoSistema) return null;
                   const isExpanded = expandedIdx === idx;
                   const isImportado = importados.has(idx);
                   const es = editState[idx] || {};
@@ -740,10 +880,67 @@ export default function ImportarRelatorioPage() {
                                     <option value="Pacote Formando">Pacote Formando</option>
                                     <option value="Indispensável Adulto">Indispensável Adulto</option>
                                     <option value="Indispensável Infantil">Indispensável Infantil</option>
+                                    <option value="Múltiplos Produtos">Múltiplos Produtos</option>
                                     <option value="Ignorar">Ignorar</option>
                                   </select>
                                 </div>
                               </div>
+                              
+                              {es.grupos?.[gi]?.produto === 'Múltiplos Produtos' && (
+                                <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', backgroundColor: 'rgba(139,92,246,0.05)' }}>
+                                  <h4 style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '12px' }}>Configuração de Boleto Misto</h4>
+                                  
+                                  {!es.evento ? (
+                                     <div style={{ color: '#ef4444', fontSize: '0.8rem', padding: '8px', backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: '6px' }}>
+                                       ⚠️ Selecione o Evento acima para carregar os preços e calcular.
+                                     </div>
+                                  ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                                         <div>
+                                           <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Adulto (Qtd)</label>
+                                           <input type="number" min="0" value={es.grupos[gi]?.qtdAdulto || 0} onChange={e => handleMultiploChange(idx, gi, 'qtdAdulto', parseInt(e.target.value) || 0)} style={inputStyle} />
+                                         </div>
+                                         <div>
+                                           <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Infantil (Qtd)</label>
+                                           <input type="number" min="0" value={es.grupos[gi]?.qtdInfantil || 0} onChange={e => handleMultiploChange(idx, gi, 'qtdInfantil', parseInt(e.target.value) || 0)} style={inputStyle} />
+                                         </div>
+                                         <div>
+                                           <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Pacote (Qtd)</label>
+                                           <input type="number" min="0" value={es.grupos[gi]?.qtdPacote || 0} onChange={e => handleMultiploChange(idx, gi, 'qtdPacote', parseInt(e.target.value) || 0)} style={inputStyle} />
+                                         </div>
+                                      </div>
+                                      
+                                      {(() => {
+                                         const eventoObj = eventos.find(e => e.nome === es.evento);
+                                         const pAdulto = eventoObj?.valorIndispAdultoParcelado || 0;
+                                         const pInfantil = eventoObj?.valorIndispInfantilParcelado || 0;
+                                         const pPacote = eventoObj?.valorPacoteParcelado || 0;
+                                         const calc = (es.grupos[gi]?.qtdAdulto || 0) * pAdulto + (es.grupos[gi]?.qtdInfantil || 0) * pInfantil + (es.grupos[gi]?.qtdPacote || 0) * pPacote;
+                                         const target = g.totalValor;
+                                         const diff = Math.abs(calc - target);
+                                         const isMatch = diff < 1; // tolerância de R$ 1,00
+                              
+                                         return (
+                                           <div style={{ padding: '12px', borderRadius: '6px', border: isMatch ? '1px solid #10b981' : '1px solid #ef4444', backgroundColor: isMatch ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)' }}>
+                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Calculado:</span>
+                                               <strong style={{ color: isMatch ? '#10b981' : '#ef4444' }}>R$ {calc.toFixed(2)}</strong>
+                                             </div>
+                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Valor Esperado (Boleto):</span>
+                                               <strong style={{ color: 'var(--text-primary)' }}>R$ {target.toFixed(2)}</strong>
+                                             </div>
+                                             {!isMatch && (
+                                               <div style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '6px' }}>⚠️ A soma difere do boleto em R$ {diff.toFixed(2)}</div>
+                                             )}
+                                           </div>
+                                         );
+                                      })()}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                                 <thead>
                                   <tr style={{ color: 'var(--text-secondary)' }}>

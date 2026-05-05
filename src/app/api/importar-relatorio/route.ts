@@ -185,8 +185,9 @@ export async function POST(req: Request) {
     const byPagador: Record<string, any[]> = {};
     rows.forEach(r => {
       const pagador = String(r[4] || '').trim();
+      const numDoc = String(r[1] || '').trim();
       if (!pagador) return;
-      if (ignoradosSet.has(pagador)) return; // IGNORAR se estiver na lista de ignorados
+      if (ignoradosSet.has(pagador) || (numDoc && ignoradosSet.has(numDoc))) return; // IGNORAR se estiver na lista de ignorados
 
       if (!byPagador[pagador]) byPagador[pagador] = [];
       byPagador[pagador].push({
@@ -266,17 +267,6 @@ export async function POST(req: Request) {
         if (foundBoletos.length > 0) {
           // Bingo! Os boletos existem no banco sob os códigos (ex: 101015026, 2010012026), vinculamos.
           existingMap[pagadorXls] = foundBoletos;
-        } else {
-          // Se não encontrou, e tem um doc que se parece muito com um código do Controle de Contratos,
-          // ou se o PRÓPRIO nome do pagador é um código no padrão.
-          const isPagadorCode = regexContrato.test(pagadorXls);
-          if (possibleDocs.length > 0 || isPagadorCode) {
-            // Adicionamos os docs puramente numéricos (ou o próprio pagador se for numérico) à lista de bloqueio
-            const codeToBlock = isPagadorCode ? pagadorXls : possibleDocs[0];
-            if (!codigosNaoEncontrados.includes(codeToBlock)) {
-              codigosNaoEncontrados.push(codeToBlock);
-            }
-          }
         }
       }
     }
@@ -345,10 +335,7 @@ export async function POST(req: Request) {
 
     for (const [pagadorOriginal, parcelas] of Object.entries(byPagador)) {
       // Ignorar os que foram classificados como códigos do sistema não encontrados
-      if (codigosNaoEncontrados.includes(pagadorOriginal) || parcelas.some(p => codigosNaoEncontrados.includes(p.numDoc))) {
-        continue;
-      }
-
+      // (REMOVIDO: Agora eles vão para a lista de novos para confirmação)
       const parts = pagadorOriginal.split(/\s*[-–]\s*/);
       let nomeResponsavel = parts[0]?.trim() || pagadorOriginal;
       let nomeFormandoRaw = parts.slice(1).join(' - ').trim();
@@ -486,6 +473,41 @@ export async function POST(req: Request) {
 
       } else {
         // ─── Pagador NOVO — precisa classificação ────────────────────────────────
+        
+        const regexContrato = /^([123])0(\d+)0(\d+)0(\d{2})$/;
+        let isCodigoSistema = false;
+        let codigoInfo = null;
+        let codigoStr = '';
+        
+        if (regexContrato.test(pagadorOriginal)) {
+          isCodigoSistema = true;
+          codigoStr = pagadorOriginal;
+        } else {
+          const docMatch = parcelas.find(p => p.numDoc && regexContrato.test(p.numDoc));
+          if (docMatch) {
+            isCodigoSistema = true;
+            codigoStr = docMatch.numDoc;
+          }
+        }
+
+        if (isCodigoSistema) {
+          const match = codigoStr.match(regexContrato);
+          if (match) {
+            const prodCode = match[1];
+            let produto = 'Indefinido';
+            if (prodCode === '1') produto = 'Pacote Formando';
+            if (prodCode === '2') produto = 'Indispensável Adulto';
+            if (prodCode === '3') produto = 'Indispensável Infantil';
+            
+            codigoInfo = {
+              codigo: codigoStr,
+              produto,
+              quantidade: parseInt(match[2], 10),
+              parcelas: parseInt(match[3], 10),
+              temporada: match[4]
+            };
+          }
+        }
         // Se tem baixados, fica separado aguardando justificativa (conforme decisão do usuário)
         const valueGroups: Record<string, any[]> = {};
         parcelas.forEach(p => {
@@ -519,6 +541,8 @@ export async function POST(req: Request) {
           totalParcelas: parcelas.length,
           temBaixados: parcelas.some((p: any) => p.status === 'CANCELADO'),
           grupos,
+          isCodigoSistema,
+          codigoInfo
         });
       }
     }

@@ -117,7 +117,14 @@ export default function BoletoRow({ boleto, onStatusChange, onEdit }: BoletoRowP
         </div>
         <div className={styles.infoGroup}>
           <span className={styles.infoLabel}>Produto</span>
-          <span className={styles.infoValue}>{boleto.produto || '-'}</span>
+          <span className={styles.infoValue}>
+            {boleto.quantidade === 'Misto' && (
+              <span style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', color: '#8b5cf6', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', marginRight: '6px', whiteSpace: 'nowrap' }}>
+                MISTO
+              </span>
+            )}
+            {boleto.produto || '-'}
+          </span>
         </div>
         <div className={styles.infoGroup}>
           <span className={styles.infoLabel}>Quantidade</span>

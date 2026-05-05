@@ -39,8 +39,20 @@ export async function POST(req: Request) {
     hoje.setHours(0, 0, 0, 0);
 
     for (const grupo of grupos) {
-      const { produto, parcelas } = grupo;
-      if (!produto || produto === 'Ignorar') continue;
+      const { produto, parcelas, quantidade } = grupo;
+      if (!produto || produto === 'Ignorar') {
+        // Se o usuário selecionou "Ignorar" para este produto, ignorar permanentemente os boletos (numDoc)
+        const uniqueDocs = Array.from(new Set(parcelas.map((p: any) => p.numDoc).filter(Boolean)));
+        for (const doc of uniqueDocs) {
+          try {
+            await prisma.pagadorIgnorado.create({ data: { pagador: String(doc) } });
+          } catch (e: any) {
+            // Ignorar erro de duplicidade se já existir
+            if (e.code !== 'P2002') console.error('Erro ao ignorar doc:', e);
+          }
+        }
+        continue;
+      }
 
       const todosCancelados = parcelas.every((p: any) => p.status === 'CANCELADO');
 
@@ -51,7 +63,7 @@ export async function POST(req: Request) {
           evento: evento || null,
           temporada: eventoDb?.temporada || '',
           produto: produto,
-          quantidade: '1',
+          quantidade: quantidade || '1',
           numeroParcelas: String(parcelas.length),
           pagadorOriginal: pagadorOriginal,
           parcelas: {
