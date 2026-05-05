@@ -191,18 +191,26 @@ export default function ImportarRelatorioPage() {
 
   const handleIgnorar = async (idx: number) => {
     const p = novos[idx];
-    if (!confirm(`Tem certeza que deseja ignorar permanentemente o pagador "${p.pagadorOriginal}"? Ele não aparecerá mais em importações futuras.`)) return;
+    if (!confirm(`Tem certeza que deseja ignorar permanentemente os boletos deste grupo? Eles não aparecerão mais em importações futuras.`)) return;
     
     setIgnorandoIdx(idx);
     try {
+      const docsToIgnore: string[] = [];
+      p.grupos.forEach((g: Grupo) => {
+        g.parcelas.forEach((parc: any) => {
+          if (parc.numDoc) docsToIgnore.push(parc.numDoc);
+        });
+      });
+      const uniqueDocs = Array.from(new Set(docsToIgnore));
+
       const res = await fetch('/api/importar-relatorio/ignorar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pagadorOriginal: p.pagadorOriginal })
+        body: JSON.stringify({ docs: uniqueDocs.length > 0 ? uniqueDocs : undefined, pagadorOriginal: uniqueDocs.length === 0 ? p.pagadorOriginal : undefined })
       });
       if (res.ok) {
         setImportados(prev => new Set([...prev, idx])); // Esconde da lista
-        setCodigosIgnorados(prev => [...prev, p.pagadorOriginal]); // Adiciona na lista de ignorados do topo
+        if (uniqueDocs.length === 0) setCodigosIgnorados(prev => [...prev, p.pagadorOriginal]); 
       } else {
         const err = await res.json();
         alert(`Erro: ${err.error}`);
@@ -765,13 +773,35 @@ export default function ImportarRelatorioPage() {
                                   <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#10b981' }}>{es.grupos?.[gi]?.produto}</span>
                                 </div>
                               </div>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                                <thead>
+                                  <tr style={{ color: 'var(--text-secondary)' }}>
+                                    <th style={{ padding: '6px 12px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Doc</th>
+                                    <th style={{ padding: '6px 12px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Vencimento</th>
+                                    <th style={{ padding: '6px 12px', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>Valor</th>
+                                    <th style={{ padding: '6px 12px', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>Liquidação</th>
+                                    <th style={{ padding: '6px 12px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {g.parcelas.map((par: any, pi: number) => (
+                                    <tr key={pi} style={{ borderBottom: '1px solid var(--border)' }}>
+                                      <td style={{ padding: '6px 12px' }}>{par.numDoc}</td>
+                                      <td style={{ padding: '6px 12px', color: 'var(--text-secondary)' }}>{par.vencimento}</td>
+                                      <td style={{ padding: '6px 12px', textAlign: 'right' }}>R$ {par.valor.toFixed(2)}</td>
+                                      <td style={{ padding: '6px 12px', textAlign: 'right', color: par.liquidacao > 0 ? '#10b981' : 'var(--text-secondary)' }}>R$ {par.liquidacao.toFixed(2)}</td>
+                                      <td style={{ padding: '6px 12px', textAlign: 'center' }}>{statusBadge(par.status)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
                           ))}
 
                           <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                             <button onClick={() => handleIgnorar(idx)} disabled={importando === idx || ignorandoIdx === idx}
                               style={{ flex: 1, padding: '12px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '8px', cursor: (importando === idx || ignorandoIdx === idx) ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', opacity: (importando === idx || ignorandoIdx === idx) ? 0.7 : 1 }}>
-                              {ignorandoIdx === idx ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Ignorar Pagador'}
+                              {ignorandoIdx === idx ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Ignorar Grupo'}
                             </button>
                             <button onClick={() => {
                                 if (!es.evento) { alert('Você precisa selecionar o evento para confirmar.'); return; }
@@ -969,7 +999,7 @@ export default function ImportarRelatorioPage() {
                           <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                             <button onClick={() => handleIgnorar(idx)} disabled={importando === idx || ignorandoIdx === idx}
                               style={{ flex: 1, padding: '12px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '8px', cursor: (importando === idx || ignorandoIdx === idx) ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', opacity: (importando === idx || ignorandoIdx === idx) ? 0.7 : 1 }}>
-                              {ignorandoIdx === idx ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Ignorar Pagador'}
+                              {ignorandoIdx === idx ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Ignorar Grupo'}
                             </button>
                             <button onClick={() => handleConfirmar(idx)} disabled={importando === idx || ignorandoIdx === idx}
                               style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', backgroundColor: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '8px', cursor: (importando === idx || ignorandoIdx === idx) ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', opacity: (importando === idx || ignorandoIdx === idx) ? 0.7 : 1 }}>
