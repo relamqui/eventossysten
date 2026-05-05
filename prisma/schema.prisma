@@ -60,6 +60,8 @@ model Evento {
   contratoCaminho              String?
   zapsignTemplateId            String?
 
+  contasFinanceiras            ContaFinanceira[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -113,4 +115,62 @@ model PagadorIgnorado {
   id        Int      @id @default(autoincrement())
   pagador   String   @unique
   createdAt DateTime @default(now())
+}
+
+model AreaEvento {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  descricao String?
+  contas    ContaFinanceira[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PessoaFinanceira {
+  id               Int      @id @default(autoincrement())
+  tipo             String   // "CLIENTE", "FORNECEDOR", "AMBOS"
+  nomeRazao        String
+  documento        String?
+  contatoPrincipal String?
+  contas           ContaFinanceira[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ContaFinanceira {
+  id           Int      @id @default(autoincrement())
+  tipo         String   // "PAGAR" ou "RECEBER"
+  descricao    String
+  valorTotal   Float
+  eventoId     Int
+  areaEventoId Int?
+  pessoaId     Int
+  statusGeral  String   @default("PENDENTE") // PENDENTE, PARCIAL, QUITADO, CANCELADO
+
+  evento       Evento           @relation(fields: [eventoId], references: [id])
+  areaEvento   AreaEvento?      @relation(fields: [areaEventoId], references: [id])
+  pessoa       PessoaFinanceira @relation(fields: [pessoaId], references: [id])
+  parcelas     ParcelaFinanceira[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ParcelaFinanceira {
+  id             Int      @id @default(autoincrement())
+  contaId        Int
+  numeroParcela  Int
+  valorEsperado  Float
+  dataVencimento String   // YYYY-MM-DD
+  valorPago      Float    @default(0)
+  dataPagamento  String?  // YYYY-MM-DD
+  status         String   @default("PENDENTE") // PENDENTE, PAGO, ATRASADO, CANCELADO
+  observacao     String?
+
+  conta ContaFinanceira @relation(fields: [contaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
