@@ -724,7 +724,7 @@ export default function ImportarRelatorioPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                           <CheckCircle size={18} style={{ color: '#10b981', flexShrink: 0 }} />
                           <div>
-                            <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#10b981' }}>Código Detectado: {p.codigoInfo?.codigo}</div>
+                            <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#10b981' }}>{p.pagadorOriginal} (Código: {p.codigoInfo?.codigo})</div>
                             <div style={{ fontSize: '0.82rem', color: 'var(--text-primary)', marginTop: '2px' }}>
                               <strong style={{color: '#10b981'}}>Produto:</strong> {p.codigoInfo?.produto} | 
                               <strong style={{color: '#10b981', marginLeft: '6px'}}>Qtd:</strong> {p.codigoInfo?.quantidade} | 
