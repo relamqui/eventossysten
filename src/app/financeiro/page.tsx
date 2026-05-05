@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, ArrowRightLeft, Users, Briefcase, Calendar as CalendarIcon,
-  TrendingUp, TrendingDown, DollarSign, Plus, X, Loader2, ChevronLeft, ChevronRight, CheckCircle, Clock, ChevronDown, ChevronUp, Edit2, Check
+  TrendingUp, TrendingDown, DollarSign, Plus, X, Loader2, ChevronLeft, ChevronRight, CheckCircle, Clock, ChevronDown, ChevronUp, Edit2, Check, Trash2
 } from 'lucide-react';
 
 export default function FinanceiroPage() {
@@ -23,6 +23,10 @@ export default function FinanceiroPage() {
   const [isModalDiaOpen, setIsModalDiaOpen] = useState(false);
   
   const [salvando, setSalvando] = useState(false);
+
+  // Exclusao State
+  const [contaParaExcluir, setContaParaExcluir] = useState<any>(null);
+  const [valorConfirmacaoExclusao, setValorConfirmacaoExclusao] = useState('');
 
   // Calendar State
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -163,8 +167,11 @@ export default function FinanceiroPage() {
       if(res.ok) {
          fetchData(); 
          setParcelasDoDia(prev => prev.map(p => p.id === parcela.id ? {...p, status: novoStatus, dataPagamento: dataPgto, valorPago: valor} : p));
+      } else {
+         const err = await res.json();
+         alert('Erro no servidor ao dar baixa: ' + (err.error || 'Desconhecido'));
       }
-    } catch(e) { alert('Erro ao dar baixa'); }
+    } catch(e: any) { alert('Erro na conexão ao tentar dar baixa: ' + e.message); }
   };
 
   const startEditParcela = (p: any) => {
@@ -188,8 +195,39 @@ export default function FinanceiroPage() {
         setEditingParcelaId(null);
         fetchData();
         setParcelasDoDia(prev => prev.map(p => p.id === editingParcelaId ? {...p, dataVencimento: editParcelaForm.dataVencimento, valorEsperado: editParcelaForm.valorEsperado} : p));
+      } else {
+        const err = await res.json();
+        alert('Erro no servidor ao editar: ' + (err.error || 'Desconhecido'));
       }
-    } catch(e) { alert('Erro ao editar parcela') }
+    } catch(e: any) { alert('Erro na conexão ao editar: ' + e.message); }
+  };
+
+  const confirmExclusao = async (e: any) => {
+    e.preventDefault();
+    if (!contaParaExcluir) return;
+
+    const valorDigitado = parseFloat(valorConfirmacaoExclusao.replace(',', '.'));
+    const valorCorreto = parseFloat(contaParaExcluir.valorTotal);
+
+    if (valorDigitado !== valorCorreto) {
+      alert('Valor incorreto. Exclusão abortada por segurança.');
+      return;
+    }
+
+    try {
+      setSalvando(true);
+      const res = await fetch(`/api/financeiro/contas?id=${contaParaExcluir.id}`, { method: 'DELETE' });
+      if(res.ok) {
+         setExpandedContaId(null);
+         setContaParaExcluir(null);
+         setValorConfirmacaoExclusao('');
+         fetchData();
+      } else {
+         const err = await res.json();
+         alert('Erro no servidor ao cancelar: ' + (err.error || 'Desconhecido'));
+      }
+    } catch(e: any) { alert('Erro na conexão ao tentar cancelar: ' + e.message); }
+    setSalvando(false);
   };
 
   // Dashboard Helpers
@@ -279,6 +317,97 @@ export default function FinanceiroPage() {
     border: '1px solid var(--border)', borderRadius: '6px', fontSize: '0.9rem'
   };
 
+  const renderContaItem = (conta: any) => {
+    const isExpanded = expandedContaId === conta.id;
+    return (
+      <div key={conta.id} style={{ backgroundColor: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '12px' }}>
+        {/* Header do Accordion */}
+        <div onClick={() => setExpandedContaId(isExpanded ? null : conta.id)} style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', backgroundColor: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ backgroundColor: conta.tipo === 'PAGAR' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)', color: conta.tipo === 'PAGAR' ? '#ef4444' : '#3b82f6', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                {conta.tipo === 'PAGAR' ? 'A PAGAR' : 'A RECEBER'}
+              </span>
+              <strong style={{ fontSize: '1.1rem' }}>{conta.descricao}</strong>
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', gap: '12px' }}>
+              <span><strong>Pessoa:</strong> {conta.pessoa?.nomeRazao}</span>
+              <span><strong>Evento:</strong> {conta.evento?.nome}</span>
+            </div>
+            <div style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              {conta.parcelas?.length} parcela(s) vinculadas.
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: conta.tipo === 'PAGAR' ? '#ef4444' : '#3b82f6' }}>
+                R$ {conta.valorTotal.toFixed(2)}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{conta.statusGeral}</div>
+            </div>
+            
+            <button onClick={(e) => { e.stopPropagation(); setContaParaExcluir(conta); setValorConfirmacaoExclusao(''); }} title="Cancelar Lançamento" style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}>
+              <Trash2 size={18} />
+            </button>
+
+            {isExpanded ? <ChevronUp color="var(--text-secondary)"/> : <ChevronDown color="var(--text-secondary)"/>}
+          </div>
+        </div>
+
+        {/* Corpo do Accordion (Parcelas) */}
+        {isExpanded && (
+          <div style={{ padding: '16px', borderTop: '1px solid var(--border)', backgroundColor: 'var(--background)' }}>
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-secondary)' }}>Detalhamento das Parcelas</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {conta.parcelas.map((p: any) => {
+                const isEditing = editingParcelaId === p.id;
+                return (
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', backgroundColor: 'var(--surface)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 'bold', width: '80px', color: p.status === 'PAGO' ? '#10b981' : (conta.tipo === 'PAGAR' ? '#ef4444' : '#3b82f6') }}>Parc. {p.numeroParcela}</span>
+                      
+                      {isEditing ? (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input type="date" value={editParcelaForm.dataVencimento} onChange={e => setEditParcelaForm({...editParcelaForm, dataVencimento: e.target.value})} style={{...inputStyle, padding: '4px 8px'}} />
+                          <input type="number" value={editParcelaForm.valorEsperado} onChange={e => setEditParcelaForm({...editParcelaForm, valorEsperado: e.target.value})} style={{...inputStyle, padding: '4px 8px', width: '100px'}} />
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '16px', fontSize: '0.9rem' }}>
+                          <span>Vencimento: <strong>{p.dataVencimento.split('-').reverse().join('/')}</strong></span>
+                          <span>Valor: <strong>R$ {Number(p.valorEsperado).toFixed(2)}</strong></span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {p.status === 'PAGO' ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold' }}><CheckCircle size={14} /> CONCLUÍDO</span>
+                      ) : (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: conta.tipo === 'PAGAR' ? '#ef4444' : '#3b82f6', fontSize: '0.8rem', fontWeight: 'bold' }}><Clock size={14} /> PENDENTE</span>
+                      )}
+
+                      {isEditing ? (
+                        <button onClick={saveEditParcela} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Check size={14}/></button>
+                      ) : (
+                        <button onClick={() => startEditParcela(p)} style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Edit2 size={14}/></button>
+                      )}
+                      <button onClick={() => handleDarBaixa(p)} style={{ background: p.status === 'PAGO' ? 'transparent' : '#10b981', color: p.status === 'PAGO' ? 'var(--text-secondary)' : '#fff', border: p.status === 'PAGO' ? '1px solid var(--border)' : 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                        {p.status === 'PAGO' ? 'Desfazer Baixa' : 'Dar Baixa'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const contasPagar = contas.filter(c => c.tipo === 'PAGAR');
+  const contasReceber = contas.filter(c => c.tipo === 'RECEBER');
+
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -308,9 +437,9 @@ export default function FinanceiroPage() {
                  <div style={{ backgroundColor: 'var(--surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>A Receber (Neste Mês)</span>
-                     <TrendingUp color="#10b981" size={24} />
+                     <TrendingUp color="#3b82f6" size={24} />
                    </div>
-                   <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10b981' }}>R$ {aReceberMes.toFixed(2)}</div>
+                   <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>R$ {aReceberMes.toFixed(2)}</div>
                  </div>
                  
                  <div style={{ backgroundColor: 'var(--surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
@@ -324,9 +453,9 @@ export default function FinanceiroPage() {
                  <div style={{ backgroundColor: 'var(--surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Saldo Pendente Projetado</span>
-                     <DollarSign color="#3b82f6" size={24} />
+                     <DollarSign color="#10b981" size={24} />
                    </div>
-                   <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>R$ {saldoProjetado.toFixed(2)}</div>
+                   <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10b981' }}>R$ {saldoProjetado.toFixed(2)}</div>
                  </div>
                </div>
 
@@ -334,7 +463,7 @@ export default function FinanceiroPage() {
                <div style={{ backgroundColor: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
                   <div style={{ padding: '20px', borderBottom: '1px solid var(--border)' }}>
                     <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Relatório por Evento (Realizado)</h2>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Calculado com base nas parcelas já confirmadas como "PAGO".</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Calculado com base nas parcelas já confirmadas como "CONCLUÍDO".</p>
                   </div>
                   {eventosArray.length === 0 ? (
                     <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Nenhum fluxo de caixa realizado ainda.</div>
@@ -352,7 +481,7 @@ export default function FinanceiroPage() {
                         {eventosArray.map(ev => (
                           <tr key={ev.nome} style={{ borderBottom: '1px solid var(--border)' }}>
                             <td style={{ padding: '16px 20px', fontWeight: 'bold' }}>{ev.nome}</td>
-                            <td style={{ padding: '16px 20px', color: '#10b981' }}>R$ {ev.recebido.toFixed(2)}</td>
+                            <td style={{ padding: '16px 20px', color: '#3b82f6' }}>R$ {ev.recebido.toFixed(2)}</td>
                             <td style={{ padding: '16px 20px', color: '#ef4444' }}>R$ {ev.pago.toFixed(2)}</td>
                             <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 'bold', color: ev.lucro >= 0 ? '#10b981' : '#ef4444' }}>
                               R$ {ev.lucro.toFixed(2)}
@@ -362,6 +491,35 @@ export default function FinanceiroPage() {
                       </tbody>
                     </table>
                   )}
+               </div>
+
+               {/* LOG DE LANÇAMENTOS NO DASHBOARD */}
+               <div style={{ marginTop: '12px' }}>
+                 <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '16px' }}>Visão Geral de Lançamentos</h2>
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                    {/* Coluna A Pagar */}
+                    <div>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#ef4444', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <TrendingDown size={20} /> Lançamentos a Pagar
+                      </h3>
+                      {contasPagar.length === 0 ? (
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nenhum lançamento pendente.</div>
+                      ) : (
+                        contasPagar.map(c => renderContaItem(c))
+                      )}
+                    </div>
+                    {/* Coluna A Receber */}
+                    <div>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#3b82f6', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <TrendingUp size={20} /> Lançamentos a Receber
+                      </h3>
+                      {contasReceber.length === 0 ? (
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nenhum lançamento pendente.</div>
+                      ) : (
+                        contasReceber.map(c => renderContaItem(c))
+                      )}
+                    </div>
+                 </div>
                </div>
              </div>
           )}
@@ -388,22 +546,28 @@ export default function FinanceiroPage() {
                 {blanks.map(b => <div key={`blank-${b}`} style={{ minHeight: '100px', backgroundColor: 'transparent' }} />)}
                 {days.map(day => {
                   const pDia = getParcelasDoDia(day);
-                  const aReceber = pDia.filter(p => p.conta.tipo === 'RECEBER');
-                  const aPagar = pDia.filter(p => p.conta.tipo === 'PAGAR');
+                  const aReceberPendentes = pDia.filter(p => p.conta.tipo === 'RECEBER' && p.status === 'PENDENTE');
+                  const aPagarPendentes = pDia.filter(p => p.conta.tipo === 'PAGAR' && p.status === 'PENDENTE');
+                  const jaPagosOuRecebidos = pDia.filter(p => p.status === 'PAGO');
                   const temConteudo = pDia.length > 0;
 
                   return (
                     <div key={day} onClick={() => handleDiaClick(day)} style={{ minHeight: '100px', backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px', cursor: temConteudo ? 'pointer' : 'default', transition: 'all 0.2s ease', position: 'relative' }}>
                       <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '8px' }}>{day}</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {aReceber.length > 0 && (
-                          <div style={{ fontSize: '0.7rem', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', padding: '4px', borderRadius: '4px', textAlign: 'center', fontWeight: 'bold' }}>
-                            {aReceber.length} a Receber
+                        {aReceberPendentes.length > 0 && (
+                          <div style={{ fontSize: '0.7rem', backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6', padding: '4px', borderRadius: '4px', textAlign: 'center', fontWeight: 'bold' }}>
+                            {aReceberPendentes.length} a Receber
                           </div>
                         )}
-                        {aPagar.length > 0 && (
+                        {aPagarPendentes.length > 0 && (
                           <div style={{ fontSize: '0.7rem', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '4px', borderRadius: '4px', textAlign: 'center', fontWeight: 'bold' }}>
-                            {aPagar.length} a Pagar
+                            {aPagarPendentes.length} a Pagar
+                          </div>
+                        )}
+                        {jaPagosOuRecebidos.length > 0 && (
+                          <div style={{ fontSize: '0.7rem', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', padding: '4px', borderRadius: '4px', textAlign: 'center', fontWeight: 'bold' }}>
+                            {jaPagosOuRecebidos.length} Concluídos
                           </div>
                         )}
                       </div>
@@ -414,97 +578,30 @@ export default function FinanceiroPage() {
             </div>
           )}
 
-          {/* LANÇAMENTOS COM ACCORDION */}
+          {/* LANÇAMENTOS (GRID DUPLA) */}
           {activeTab === 'lancamentos' && (
-            <div>
-              {contas.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>Nenhum lançamento encontrado.</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {contas.map(conta => {
-                    const isExpanded = expandedContaId === conta.id;
-                    return (
-                      <div key={conta.id} style={{ backgroundColor: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                        {/* Header do Accordion */}
-                        <div onClick={() => setExpandedContaId(isExpanded ? null : conta.id)} style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', backgroundColor: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                              <span style={{ backgroundColor: conta.tipo === 'PAGAR' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: conta.tipo === 'PAGAR' ? '#ef4444' : '#10b981', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>
-                                {conta.tipo === 'PAGAR' ? 'SAÍDA' : 'ENTRADA'}
-                              </span>
-                              <strong style={{ fontSize: '1.1rem' }}>{conta.descricao}</strong>
-                            </div>
-                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', gap: '12px' }}>
-                              <span><strong>Pessoa:</strong> {conta.pessoa?.nomeRazao}</span>
-                              <span><strong>Evento:</strong> {conta.evento?.nome}</span>
-                            </div>
-                            <div style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                              {conta.parcelas?.length} parcela(s) vinculadas.
-                            </div>
-                          </div>
-                          <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            <div>
-                              <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: conta.tipo === 'PAGAR' ? '#ef4444' : '#10b981' }}>
-                                R$ {conta.valorTotal.toFixed(2)}
-                              </div>
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{conta.statusGeral}</div>
-                            </div>
-                            {isExpanded ? <ChevronUp color="var(--text-secondary)"/> : <ChevronDown color="var(--text-secondary)"/>}
-                          </div>
-                        </div>
-
-                        {/* Corpo do Accordion (Parcelas) */}
-                        {isExpanded && (
-                          <div style={{ padding: '16px', borderTop: '1px solid var(--border)', backgroundColor: 'var(--background)' }}>
-                            <h4 style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-secondary)' }}>Detalhamento das Parcelas</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                              {conta.parcelas.map((p: any) => {
-                                const isEditing = editingParcelaId === p.id;
-                                return (
-                                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', backgroundColor: 'var(--surface)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                      <span style={{ fontSize: '0.9rem', fontWeight: 'bold', width: '80px' }}>Parc. {p.numeroParcela}</span>
-                                      
-                                      {isEditing ? (
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                          <input type="date" value={editParcelaForm.dataVencimento} onChange={e => setEditParcelaForm({...editParcelaForm, dataVencimento: e.target.value})} style={{...inputStyle, padding: '4px 8px'}} />
-                                          <input type="number" value={editParcelaForm.valorEsperado} onChange={e => setEditParcelaForm({...editParcelaForm, valorEsperado: e.target.value})} style={{...inputStyle, padding: '4px 8px', width: '100px'}} />
-                                        </div>
-                                      ) : (
-                                        <div style={{ display: 'flex', gap: '16px', fontSize: '0.9rem' }}>
-                                          <span>Vencimento: <strong>{p.dataVencimento.split('-').reverse().join('/')}</strong></span>
-                                          <span>Valor: <strong>R$ {Number(p.valorEsperado).toFixed(2)}</strong></span>
-                                        </div>
-                                      )}
-                                    </div>
-                                    
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                      {p.status === 'PAGO' ? (
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold' }}><CheckCircle size={14} /> PAGO</span>
-                                      ) : (
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b', fontSize: '0.8rem', fontWeight: 'bold' }}><Clock size={14} /> PENDENTE</span>
-                                      )}
-
-                                      {isEditing ? (
-                                        <button onClick={saveEditParcela} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Check size={14}/></button>
-                                      ) : (
-                                        <button onClick={() => startEditParcela(p)} style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Edit2 size={14}/></button>
-                                      )}
-                                      <button onClick={() => handleDarBaixa(p)} style={{ background: p.status === 'PAGO' ? 'transparent' : '#10b981', color: p.status === 'PAGO' ? 'var(--text-secondary)' : '#fff', border: p.status === 'PAGO' ? '1px solid var(--border)' : 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                                        {p.status === 'PAGO' ? 'Desfazer Baixa' : 'Dar Baixa'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#ef4444', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <TrendingDown size={24} /> Lançamentos a Pagar
+                </h3>
+                {contasPagar.length === 0 ? (
+                  <div style={{ color: 'var(--text-secondary)' }}>Nenhum lançamento.</div>
+                ) : (
+                  contasPagar.map(c => renderContaItem(c))
+                )}
+              </div>
+              
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#3b82f6', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <TrendingUp size={24} /> Lançamentos a Receber
+                </h3>
+                {contasReceber.length === 0 ? (
+                  <div style={{ color: 'var(--text-secondary)' }}>Nenhum lançamento.</div>
+                ) : (
+                  contasReceber.map(c => renderContaItem(c))
+                )}
+              </div>
             </div>
           )}
 
@@ -548,8 +645,10 @@ export default function FinanceiroPage() {
             <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {parcelasDoDia.map(p => {
                 const isEditing = editingParcelaId === p.id;
+                const corDestino = p.status === 'PAGO' ? '#10b981' : (p.conta.tipo === 'PAGAR' ? '#ef4444' : '#3b82f6');
+                
                 return (
-                <div key={p.id} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div key={p.id} style={{ backgroundColor: 'var(--surface)', border: `1px solid ${corDestino}40`, borderRadius: '8px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     {isEditing ? (
                       <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
@@ -557,8 +656,8 @@ export default function FinanceiroPage() {
                         <input type="number" value={editParcelaForm.valorEsperado} onChange={e => setEditParcelaForm({...editParcelaForm, valorEsperado: e.target.value})} style={{...inputStyle, padding: '4px 8px', width: '100px'}} />
                       </div>
                     ) : (
-                      <div style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '4px', color: p.conta.tipo === 'PAGAR' ? '#ef4444' : '#10b981' }}>
-                         {p.conta.tipo === 'PAGAR' ? 'Saída' : 'Entrada'}: R$ {Number(p.valorEsperado).toFixed(2)}
+                      <div style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '4px', color: corDestino }}>
+                         {p.conta.tipo === 'PAGAR' ? 'A Pagar' : 'A Receber'}: R$ {Number(p.valorEsperado).toFixed(2)}
                       </div>
                     )}
                     <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{p.conta.descricao}</div>
@@ -570,10 +669,10 @@ export default function FinanceiroPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
                     {p.status === 'PAGO' ? (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                        <CheckCircle size={16} /> Pago
+                        <CheckCircle size={16} /> Concluído
                       </span>
                     ) : (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: p.conta.tipo === 'PAGAR' ? '#ef4444' : '#3b82f6', fontSize: '0.85rem', fontWeight: 'bold' }}>
                         <Clock size={16} /> Pendente
                       </span>
                     )}
@@ -593,7 +692,7 @@ export default function FinanceiroPage() {
                           color: p.status === 'PAGO' ? 'var(--text-secondary)' : '#fff',
                           borderStyle: 'solid', borderWidth: '1px', borderColor: p.status === 'PAGO' ? 'var(--border)' : '#10b981'
                         }}>
-                        {p.status === 'PAGO' ? 'Desfazer' : 'Pagar'}
+                        {p.status === 'PAGO' ? 'Desfazer' : 'Dar Baixa'}
                       </button>
                     </div>
                   </div>
@@ -715,6 +814,40 @@ export default function FinanceiroPage() {
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <button type="button" onClick={() => setIsModalAreaOpen(false)} style={{ flex: 1, padding: '10px', background: 'transparent', color: '#fff', border: '1px solid var(--border)', borderRadius: '6px' }}>Cancelar</button>
                 <button type="submit" disabled={salvando} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px' }}>Salvar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      {contaParaExcluir && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 70, padding: '20px' }}>
+          <div style={{ backgroundColor: 'var(--background)', width: '100%', maxWidth: '400px', borderRadius: '12px', border: '1px solid #ef4444', padding: '24px' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '16px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Trash2 size={24} /> Confirmar Cancelamento
+            </h2>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+              Você está prestes a excluir o lançamento <strong>{contaParaExcluir.descricao}</strong>. 
+              Esta ação apagará a conta e todas as suas parcelas permanentemente.
+            </p>
+            <p style={{ fontSize: '0.9rem', marginBottom: '16px' }}>
+              Para confirmar, digite o valor total exato: <strong style={{ color: '#fff' }}>{contaParaExcluir.valorTotal.toFixed(2)}</strong>
+            </p>
+            <form onSubmit={confirmExclusao} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <input 
+                autoFocus
+                required 
+                placeholder="Ex: 1500.00" 
+                value={valorConfirmacaoExclusao} 
+                onChange={e => setValorConfirmacaoExclusao(e.target.value)} 
+                style={inputStyle} 
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => setContaParaExcluir(null)} style={{ flex: 1, padding: '10px', background: 'transparent', color: '#fff', border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer' }}>Voltar</button>
+                <button type="submit" disabled={salvando} style={{ flex: 1, padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: salvando ? 'wait' : 'pointer' }}>
+                  {salvando ? 'Excluindo...' : 'Excluir Lançamento'}
+                </button>
               </div>
             </form>
           </div>
