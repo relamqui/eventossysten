@@ -399,13 +399,9 @@
           <hr style="border: none; border-top: 1px solid var(--border); margin: 8px 0;" />
 
           <div style="background-color: rgba(16, 185, 129, 0.1); border: 1px solid var(--status-paid); padding: 12px; border-radius: 8px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-              <span style="color: var(--text-secondary); font-size: 0.9rem;">Total À Vista:</span>
-              <strong id="sol-valor-avista" style="color: var(--secondary); font-size: 1.1rem;">R$ 0,00</strong>
-            </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-              <span style="color: var(--text-secondary); font-size: 0.9rem;">Total Parcelado:</span>
-              <strong id="sol-valor-parcelado" style="color: var(--secondary); font-size: 1.1rem;">R$ 0,00</strong>
+              <span style="color: var(--text-secondary); font-size: 0.9rem;">Total a Pagar:</span>
+              <strong id="sol-valor-total" style="color: var(--secondary); font-size: 1.1rem;">R$ 0,00</strong>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
               <div>
@@ -470,13 +466,9 @@
           </div>
           
           <div style="background-color: rgba(16, 185, 129, 0.1); border: 1px solid var(--status-paid); padding: 12px; border-radius: 8px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-              <span style="color: var(--text-secondary); font-size: 0.9rem;">Total À Vista:</span>
-              <strong id="ind-valor-avista" style="color: #fff;">R$ 0,00</strong>
-            </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-              <span style="color: var(--text-secondary); font-size: 0.9rem;">Total Parcelado:</span>
-              <strong id="ind-valor-parcelado" style="color: #fff;">R$ 0,00</strong>
+              <span style="color: var(--text-secondary); font-size: 0.9rem;">Total a Pagar:</span>
+              <strong id="ind-valor-total" style="color: var(--secondary); font-size: 1.1rem;">R$ 0,00</strong>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
               <div>
@@ -631,35 +623,37 @@
     // Atualiza Preços do Quadro 2 (Pacote Formando)
     const updatePacotePricing = () => {
       const eventoNome = document.getElementById('sol-evento').value;
+      const formaPagamento = document.getElementById('sol-forma-pagamento').value;
       const evento = eventosData.find(ev => ev.nome === eventoNome);
-      const avistaEl = document.getElementById('sol-valor-avista');
-      const parceladoEl = document.getElementById('sol-valor-parcelado');
+      const totalEl = document.getElementById('sol-valor-total');
 
       if (!evento) {
-        avistaEl.innerText = 'R$ 0,00';
-        parceladoEl.innerText = 'R$ 0,00';
+        totalEl.innerText = 'R$ 0,00';
         return;
       }
 
-      avistaEl.innerText = formatCurrency(evento.valorPacoteAVista || 0);
-      parceladoEl.innerText = formatCurrency(evento.valorPacoteParcelado || 0);
+      if (formaPagamento === 'À Vista') {
+        totalEl.innerText = formatCurrency(evento.valorPacoteAVista || 0);
+      } else {
+        totalEl.innerText = formatCurrency(evento.valorPacoteParcelado || 0);
+      }
     };
 
     document.getElementById('sol-evento').addEventListener('change', updatePacotePricing);
+    document.getElementById('sol-forma-pagamento').addEventListener('change', updatePacotePricing);
 
     // Atualiza Preços do Quadro 3 (Indispensáveis)
     const updateIndispensavelPricing = () => {
       const eventoNome = document.getElementById('ind-evento').value;
       const produto = document.getElementById('ind-produto').value;
       const quantidade = parseInt(document.getElementById('ind-quantidade').value) || 1;
+      const formaPagamento = document.getElementById('ind-forma-pagamento').value;
       
       const evento = eventosData.find(ev => ev.nome === eventoNome);
-      const avistaEl = document.getElementById('ind-valor-avista');
-      const parceladoEl = document.getElementById('ind-valor-parcelado');
+      const totalEl = document.getElementById('ind-valor-total');
 
       if (!evento) {
-        avistaEl.innerText = 'R$ 0,00';
-        parceladoEl.innerText = 'R$ 0,00';
+        totalEl.innerText = 'R$ 0,00';
         return;
       }
 
@@ -674,14 +668,18 @@
         unitParcelado = evento.valorIndispInfantilParcelado || 0;
       }
 
-      avistaEl.innerText = formatCurrency(unitAVista * quantidade);
-      parceladoEl.innerText = formatCurrency(unitParcelado * quantidade);
+      if (formaPagamento === 'À Vista') {
+        totalEl.innerText = formatCurrency(unitAVista * quantidade);
+      } else {
+        totalEl.innerText = formatCurrency(unitParcelado * quantidade);
+      }
     };
 
     // Listeners para os Quadros
     document.getElementById('ind-evento').addEventListener('change', updateIndispensavelPricing);
     document.getElementById('ind-produto').addEventListener('change', updateIndispensavelPricing);
     document.getElementById('ind-quantidade').addEventListener('input', updateIndispensavelPricing);
+    document.getElementById('ind-forma-pagamento').addEventListener('change', updateIndispensavelPricing);
 
     // --- Lógica do Quadro 2: Solicitar Pacote ---
     const formSolicitacao = document.getElementById('form-solicitacao');
