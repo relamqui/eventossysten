@@ -80,3 +80,19 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const params = await context.params;
+    const id = parseInt(params.id, 10);
+    
+    await prisma.evento.delete({
+      where: { id }
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting evento:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

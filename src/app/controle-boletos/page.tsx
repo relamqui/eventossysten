@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import BoletoRow, { BoletoData, Status } from '@/components/BoletoRow/BoletoRow';
 import { Plus, Search, CalendarPlus, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Mask Functions
 const maskCPF = (value: string) => {
@@ -32,6 +33,7 @@ const maskPhone = (value: string) => {
 
 export default function ControleBoletosPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [boletos, setBoletos] = useState<BoletoData[]>([]);
   const [eventos, setEventos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -224,6 +226,27 @@ export default function ControleBoletosPage() {
         }
       }
     } catch (error) {
+      alert('Falha na conexão com a API');
+    }
+  };
+
+  const handleDeleteEvento = async () => {
+    if (!novoEvento.id) return;
+    if (!confirm('Tem certeza que deseja deletar este evento? Essa ação não pode ser desfeita.')) return;
+
+    try {
+      const res = await fetch(`/api/eventos/${novoEvento.id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setEventos(prev => prev.filter(ev => ev.id !== novoEvento.id));
+        setIsEventoModalOpen(false);
+        setContratoFile(null);
+      } else {
+        alert('Erro ao deletar evento');
+      }
+    } catch (error) {
+      console.error('Failed to delete evento', error);
       alert('Falha na conexão com a API');
     }
   };
@@ -666,9 +689,14 @@ export default function ControleBoletosPage() {
                 />
               </div>
               
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
-                <button type="button" onClick={() => setIsEventoModalOpen(false)} style={{ padding: '12px 24px', borderRadius: '8px', backgroundColor: 'var(--surface-hover)', color: 'var(--text-primary)' }}>Cancelar</button>
-                <button type="submit" style={{ padding: '12px 24px', borderRadius: '8px', backgroundColor: 'var(--primary)', color: '#fff', fontWeight: 'bold' }}>Salvar Evento</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+                {isEditingEvento && user?.isAdmin ? (
+                  <button type="button" onClick={handleDeleteEvento} style={{ padding: '12px 24px', borderRadius: '8px', backgroundColor: 'var(--status-overdue)', color: '#fff', fontWeight: 'bold' }}>Excluir Evento</button>
+                ) : <div></div>}
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button type="button" onClick={() => setIsEventoModalOpen(false)} style={{ padding: '12px 24px', borderRadius: '8px', backgroundColor: 'var(--surface-hover)', color: 'var(--text-primary)' }}>Cancelar</button>
+                  <button type="submit" style={{ padding: '12px 24px', borderRadius: '8px', backgroundColor: 'var(--primary)', color: '#fff', fontWeight: 'bold' }}>Salvar Evento</button>
+                </div>
               </div>
             </form>
           </div>
