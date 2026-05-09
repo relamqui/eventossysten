@@ -242,6 +242,7 @@ export default function ControleBoletosPage() {
         setEventos(prev => prev.filter(ev => ev.id !== novoEvento.id));
         setIsEventoModalOpen(false);
         setContratoFile(null);
+        alert('Evento deletado com sucesso!');
       } else {
         alert('Erro ao deletar evento');
       }
@@ -690,7 +691,7 @@ export default function ControleBoletosPage() {
               </div>
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-                {isEditingEvento && user?.isAdmin ? (
+                {isEditingEvento && novoEvento.id > 0 && user?.isAdmin ? (
                   <button type="button" onClick={handleDeleteEvento} style={{ padding: '12px 24px', borderRadius: '8px', backgroundColor: 'var(--status-overdue)', color: '#fff', fontWeight: 'bold' }}>Excluir Evento</button>
                 ) : <div></div>}
                 <div style={{ display: 'flex', gap: '12px' }}>
