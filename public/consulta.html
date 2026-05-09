@@ -306,7 +306,7 @@
     }
     
     /* Total boxes */
-    #ind-valor-avista, #ind-valor-parcelado {
+    #ind-valor-avista, #ind-valor-parcelado, #sol-valor-avista, #sol-valor-parcelado {
       color: var(--secondary) !important;
       font-size: 1.1rem;
     }
@@ -398,17 +398,27 @@
 
           <hr style="border: none; border-top: 1px solid var(--border); margin: 8px 0;" />
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div>
-              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Forma de Pagamento *</label>
-              <select id="sol-forma-pagamento" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
-                <option value="À Vista">À Vista</option>
-                <option value="Parcelado">Parcelado</option>
-              </select>
+          <div style="background-color: rgba(16, 185, 129, 0.1); border: 1px solid var(--status-paid); padding: 12px; border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: var(--text-secondary); font-size: 0.9rem;">Total À Vista:</span>
+              <strong id="sol-valor-avista" style="color: var(--secondary); font-size: 1.1rem;">R$ 0,00</strong>
             </div>
-            <div>
-              <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Parcelas *</label>
-              <input type="number" id="sol-parcelas" required min="1" max="24" value="1" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);" />
+            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+              <span style="color: var(--text-secondary); font-size: 0.9rem;">Total Parcelado:</span>
+              <strong id="sol-valor-parcelado" style="color: var(--secondary); font-size: 1.1rem;">R$ 0,00</strong>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Forma de Pagamento *</label>
+                <select id="sol-forma-pagamento" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+                  <option value="À Vista">À Vista</option>
+                  <option value="Parcelado">Parcelado</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">Parcelas *</label>
+                <input type="number" id="sol-parcelas" required min="1" max="24" value="1" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);" />
+              </div>
             </div>
           </div>
           
@@ -617,6 +627,25 @@
 
     // Funções auxiliares para formatar moeda e atualizar os totais
     const formatCurrency = (val) => val != null ? `R$ ${val.toFixed(2).replace('.', ',')}` : 'N/A';
+
+    // Atualiza Preços do Quadro 2 (Pacote Formando)
+    const updatePacotePricing = () => {
+      const eventoNome = document.getElementById('sol-evento').value;
+      const evento = eventosData.find(ev => ev.nome === eventoNome);
+      const avistaEl = document.getElementById('sol-valor-avista');
+      const parceladoEl = document.getElementById('sol-valor-parcelado');
+
+      if (!evento) {
+        avistaEl.innerText = 'R$ 0,00';
+        parceladoEl.innerText = 'R$ 0,00';
+        return;
+      }
+
+      avistaEl.innerText = formatCurrency(evento.valorPacoteAVista || 0);
+      parceladoEl.innerText = formatCurrency(evento.valorPacoteParcelado || 0);
+    };
+
+    document.getElementById('sol-evento').addEventListener('change', updatePacotePricing);
 
     // Atualiza Preços do Quadro 3 (Indispensáveis)
     const updateIndispensavelPricing = () => {
