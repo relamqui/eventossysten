@@ -21,6 +21,10 @@ export default function FinanceiroPage() {
   const [isModalPessoaOpen, setIsModalPessoaOpen] = useState(false);
   const [isModalAreaOpen, setIsModalAreaOpen] = useState(false);
   const [isModalDiaOpen, setIsModalDiaOpen] = useState(false);
+
+  // Edit State for Entidades/Áreas
+  const [editingPessoaId, setEditingPessoaId] = useState<number | null>(null);
+  const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
   
   const [salvando, setSalvando] = useState(false);
 
@@ -47,6 +51,88 @@ export default function FinanceiroPage() {
   });
   const [formPessoa, setFormPessoa] = useState({ tipo: 'FORNECEDOR', nomeRazao: '', documento: '', contatoPrincipal: '' });
   const [formArea, setFormArea] = useState({ nome: '', descricao: '' });
+  
+  const [formParcelas, setFormParcelas] = useState<Array<{
+    id_temp: string;
+    numeroParcela: number;
+    valorEsperado: string;
+    dataVencimento: string;
+    status: 'PENDENTE' | 'PAGO';
+    isManual: boolean;
+  }>>([]);
+
+  useEffect(() => {
+    if (!isModalContaOpen) return;
+    const valor = parseFloat(formConta.valorTotal.replace(',', '.')) || 0;
+    const numParc = parseInt(formConta.numParcelas) || 1;
+    if (valor <= 0 || !formConta.primeiroVencimento) {
+      setFormParcelas([]);
+      return;
+    }
+    
+    const parcelasGeradas = [];
+    const valorParcela = (valor / numParc).toFixed(2);
+    let soma = 0;
+
+    for (let i = 0; i < numParc; i++) {
+      const v = i === numParc - 1 ? (valor - soma).toFixed(2) : valorParcela;
+      soma += parseFloat(v);
+      
+      const vencimento = new Date(formConta.primeiroVencimento + 'T12:00:00Z');
+      vencimento.setMonth(vencimento.getMonth() + i);
+
+      parcelasGeradas.push({
+        id_temp: Date.now().toString() + i,
+        numeroParcela: i + 1,
+        valorEsperado: v,
+        dataVencimento: vencimento.toISOString().split('T')[0],
+        status: 'PENDENTE' as 'PENDENTE' | 'PAGO',
+        isManual: false
+      });
+    }
+    setFormParcelas(parcelasGeradas);
+  }, [formConta.valorTotal, formConta.numParcelas, formConta.primeiroVencimento, isModalContaOpen]);
+
+  const updateParcelaField = (index: number, field: string, value: any) => {
+    const newParcelas = [...formParcelas];
+    
+    if (field === 'valorEsperado') {
+      newParcelas[index] = { ...newParcelas[index], valorEsperado: value, isManual: true };
+      
+      const valorTotal = parseFloat(formConta.valorTotal.replace(',', '.')) || 0;
+      let somaManual = 0;
+      let qtyNonManual = 0;
+      
+      newParcelas.forEach(p => {
+        if (p.isManual) {
+          const val = parseFloat(p.valorEsperado);
+          if (!isNaN(val)) somaManual += val;
+        } else {
+          qtyNonManual++;
+        }
+      });
+      
+      if (qtyNonManual > 0) {
+        const valorRestante = Math.max(0, valorTotal - somaManual);
+        const valorPorParcela = (valorRestante / qtyNonManual).toFixed(2);
+        
+        let soma = 0;
+        let count = 0;
+        for (let i = 0; i < newParcelas.length; i++) {
+          if (!newParcelas[i].isManual) {
+            count++;
+            const v = count === qtyNonManual ? (valorRestante - soma).toFixed(2) : valorPorParcela;
+            soma += parseFloat(v);
+            newParcelas[i] = { ...newParcelas[i], valorEsperado: v };
+          }
+        }
+      }
+    } else {
+      newParcelas[index] = { ...newParcelas[index], [field]: value };
+    }
+    
+    setFormParcelas(newParcelas);
+  };
 
   useEffect(() => {
     fetchData();
@@ -78,25 +164,6 @@ export default function FinanceiroPage() {
     setSalvando(true);
 
     const valor = parseFloat(formConta.valorTotal.replace(',', '.'));
-    const numParc = parseInt(formConta.numParcelas);
-    const dataInicial = new Date(formConta.primeiroVencimento + 'T12:00:00Z');
-    
-    const parcelasGeradas = [];
-    const valorParcela = (valor / numParc).toFixed(2);
-    let soma = 0;
-
-    for (let i = 0; i < numParc; i++) {
-      const v = i === numParc - 1 ? (valor - soma).toFixed(2) : valorParcela;
-      soma += parseFloat(v);
-      
-      const vencimento = new Date(dataInicial);
-      vencimento.setMonth(vencimento.getMonth() + i);
-
-      parcelasGeradas.push({
-        valorEsperado: v,
-        dataVencimento: vencimento.toISOString().split('T')[0]
-      });
-    }
 
     try {
       const res = await fetch('/api/financeiro/contas', {
@@ -105,7 +172,7 @@ export default function FinanceiroPage() {
         body: JSON.stringify({
           ...formConta,
           valorTotal: valor,
-          parcelas: parcelasGeradas
+          parcelas: formParcelas
         })
       });
 
@@ -130,10 +197,17 @@ export default function FinanceiroPage() {
     e.preventDefault();
     setSalvando(true);
     try {
+      const method = editingPessoaId ? 'PATCH' : 'POST';
+      const body = editingPessoaId ? { ...formPessoa, id: editingPessoaId } : formPessoa;
       const res = await fetch('/api/financeiro/pessoas', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formPessoa)
+        method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       });
-      if (res.ok) { setIsModalPessoaOpen(false); fetchData(); setFormPessoa({ tipo: 'FORNECEDOR', nomeRazao: '', documento: '', contatoPrincipal: '' }); }
+      if (res.ok) { 
+        setIsModalPessoaOpen(false); 
+        setEditingPessoaId(null);
+        fetchData(); 
+        setFormPessoa({ tipo: 'FORNECEDOR', nomeRazao: '', documento: '', contatoPrincipal: '' }); 
+      }
       else { alert((await res.json()).error); }
     } catch (error) { alert('Erro na conexão'); }
     setSalvando(false);
@@ -143,13 +217,32 @@ export default function FinanceiroPage() {
     e.preventDefault();
     setSalvando(true);
     try {
+      const method = editingAreaId ? 'PATCH' : 'POST';
+      const body = editingAreaId ? { ...formArea, id: editingAreaId } : formArea;
       const res = await fetch('/api/financeiro/areas', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formArea)
+        method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       });
-      if (res.ok) { setIsModalAreaOpen(false); fetchData(); setFormArea({ nome: '', descricao: '' }); }
+      if (res.ok) { 
+        setIsModalAreaOpen(false); 
+        setEditingAreaId(null);
+        fetchData(); 
+        setFormArea({ nome: '', descricao: '' }); 
+      }
       else { alert((await res.json()).error); }
     } catch (error) { alert('Erro na conexão'); }
     setSalvando(false);
+  };
+
+  const handleEditPessoa = (p: any) => {
+    setEditingPessoaId(p.id);
+    setFormPessoa({ tipo: p.tipo, nomeRazao: p.nomeRazao, documento: p.documento || '', contatoPrincipal: p.contatoPrincipal || '' });
+    setIsModalPessoaOpen(true);
+  };
+
+  const handleEditArea = (a: any) => {
+    setEditingAreaId(a.id);
+    setFormArea({ nome: a.nome, descricao: a.descricao || '' });
+    setIsModalAreaOpen(true);
   };
 
   const handleDarBaixa = async (parcela: any) => {
@@ -608,12 +701,15 @@ export default function FinanceiroPage() {
           {/* PESSOAS e AREAS */}
           {activeTab === 'pessoas' && (
             <div>
-              <button onClick={() => setIsModalPessoaOpen(true)} style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}><Plus size={16} /> Nova Pessoa</button>
+              <button onClick={() => { setEditingPessoaId(null); setFormPessoa({ tipo: 'FORNECEDOR', nomeRazao: '', documento: '', contatoPrincipal: '' }); setIsModalPessoaOpen(true); }} style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}><Plus size={16} /> Nova Pessoa</button>
               {pessoas.map(p => (
-                <div key={p.id} style={{ padding: '12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '16px' }}>
+                <div key={p.id} style={{ padding: '12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '16px', alignItems: 'center' }}>
                   <span style={{ color: 'var(--text-secondary)', width: '100px' }}>{p.tipo}</span>
                   <strong style={{ flex: 1 }}>{p.nomeRazao}</strong>
                   <span style={{ color: 'var(--text-secondary)' }}>{p.documento || '-'}</span>
+                  <button onClick={() => handleEditPessoa(p)} style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Editar">
+                    <Edit2 size={18} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -621,10 +717,13 @@ export default function FinanceiroPage() {
 
           {activeTab === 'areas' && (
             <div>
-              <button onClick={() => setIsModalAreaOpen(true)} style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}><Plus size={16} /> Nova Área</button>
+              <button onClick={() => { setEditingAreaId(null); setFormArea({ nome: '', descricao: '' }); setIsModalAreaOpen(true); }} style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}><Plus size={16} /> Nova Área</button>
               {areas.map(a => (
-                <div key={a.id} style={{ padding: '12px', borderBottom: '1px solid var(--border)' }}>
-                  <strong>{a.nome}</strong> <span style={{ color: 'var(--text-secondary)', marginLeft: '12px' }}>{a.descricao}</span>
+                <div key={a.id} style={{ padding: '12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center' }}>
+                  <strong style={{ flex: 1 }}>{a.nome} <span style={{ color: 'var(--text-secondary)', marginLeft: '12px', fontWeight: 'normal' }}>{a.descricao}</span></strong>
+                  <button onClick={() => handleEditArea(a)} style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Editar">
+                    <Edit2 size={18} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -758,17 +857,41 @@ export default function FinanceiroPage() {
               </div>
 
               <div style={{ backgroundColor: 'var(--surface)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                <h3 style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '12px' }}>Parcelamento</h3>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '12px' }}>Parcelamento e Vencimentos</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Nº de Parcelas</label>
                     <input required type="number" min="1" value={formConta.numParcelas} onChange={e => setFormConta({...formConta, numParcelas: e.target.value})} style={inputStyle} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>1º Vencimento</label>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>1º Vencimento base</label>
                     <input required type="date" value={formConta.primeiroVencimento} onChange={e => setFormConta({...formConta, primeiroVencimento: e.target.value})} style={inputStyle} />
                   </div>
                 </div>
+
+                {formParcelas.length > 0 && (
+                  <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Detalhamento Dinâmico</h4>
+                    {formParcelas.map((p, idx) => (
+                      <div key={p.id_temp} style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: 'var(--background)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 'bold', width: '60px' }}>Parc. {p.numeroParcela}</span>
+                        <input required type="date" value={p.dataVencimento} onChange={e => updateParcelaField(idx, 'dataVencimento', e.target.value)} style={{ ...inputStyle, flex: 1, padding: '8px' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0 8px', flex: 1 }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginRight: '4px' }}>R$</span>
+                          <input required type="number" step="0.01" value={p.valorEsperado} onChange={e => updateParcelaField(idx, 'valorEsperado', e.target.value)} style={{ ...inputStyle, border: 'none', padding: '8px 0' }} />
+                        </div>
+                        <button type="button" onClick={() => updateParcelaField(idx, 'status', p.status === 'PAGO' ? 'PENDENTE' : 'PAGO')} style={{ 
+                          padding: '8px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', width: '100px',
+                          backgroundColor: p.status === 'PAGO' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
+                          color: p.status === 'PAGO' ? '#10b981' : '#3b82f6',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                        }}>
+                          {p.status === 'PAGO' ? <><CheckCircle size={14}/> Paga</> : <><Clock size={14}/> Pendente</>}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
@@ -785,7 +908,7 @@ export default function FinanceiroPage() {
       {isModalPessoaOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div style={{ backgroundColor: 'var(--background)', width: '100%', maxWidth: '400px', borderRadius: '12px', padding: '24px' }}>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '16px' }}>Nova Pessoa (Entidade)</h2>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '16px' }}>{editingPessoaId ? 'Editar Pessoa' : 'Nova Pessoa (Entidade)'}</h2>
             <form onSubmit={handleSalvarPessoa} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <select required value={formPessoa.tipo} onChange={e => setFormPessoa({...formPessoa, tipo: e.target.value})} style={inputStyle}>
                 <option value="FORNECEDOR">Fornecedor</option>
@@ -796,7 +919,7 @@ export default function FinanceiroPage() {
               <input placeholder="CPF/CNPJ" value={formPessoa.documento} onChange={e => setFormPessoa({...formPessoa, documento: e.target.value})} style={inputStyle} />
               <input placeholder="Contato (Telefone/Email)" value={formPessoa.contatoPrincipal} onChange={e => setFormPessoa({...formPessoa, contatoPrincipal: e.target.value})} style={inputStyle} />
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <button type="button" onClick={() => setIsModalPessoaOpen(false)} style={{ flex: 1, padding: '10px', background: 'transparent', color: '#fff', border: '1px solid var(--border)', borderRadius: '6px' }}>Cancelar</button>
+                <button type="button" onClick={() => { setIsModalPessoaOpen(false); setEditingPessoaId(null); }} style={{ flex: 1, padding: '10px', background: 'transparent', color: '#fff', border: '1px solid var(--border)', borderRadius: '6px' }}>Cancelar</button>
                 <button type="submit" disabled={salvando} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px' }}>Salvar</button>
               </div>
             </form>
@@ -807,12 +930,12 @@ export default function FinanceiroPage() {
       {isModalAreaOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div style={{ backgroundColor: 'var(--background)', width: '100%', maxWidth: '400px', borderRadius: '12px', padding: '24px' }}>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '16px' }}>Nova Área de Custo</h2>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '16px' }}>{editingAreaId ? 'Editar Área de Custo' : 'Nova Área de Custo'}</h2>
             <form onSubmit={handleSalvarArea} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <input required placeholder="Nome (Ex: Iluminação)" value={formArea.nome} onChange={e => setFormArea({...formArea, nome: e.target.value})} style={inputStyle} />
               <input placeholder="Descrição" value={formArea.descricao} onChange={e => setFormArea({...formArea, descricao: e.target.value})} style={inputStyle} />
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <button type="button" onClick={() => setIsModalAreaOpen(false)} style={{ flex: 1, padding: '10px', background: 'transparent', color: '#fff', border: '1px solid var(--border)', borderRadius: '6px' }}>Cancelar</button>
+                <button type="button" onClick={() => { setIsModalAreaOpen(false); setEditingAreaId(null); }} style={{ flex: 1, padding: '10px', background: 'transparent', color: '#fff', border: '1px solid var(--border)', borderRadius: '6px' }}>Cancelar</button>
                 <button type="submit" disabled={salvando} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px' }}>Salvar</button>
               </div>
             </form>

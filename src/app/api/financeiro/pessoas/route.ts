@@ -41,3 +41,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Erro ao criar fornecedor/cliente.' }, { status: 500 });
   }
 }
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, tipo, nomeRazao, documento, contatoPrincipal } = body;
+
+    if (!id || !tipo || !nomeRazao) {
+      return NextResponse.json({ error: 'ID, Tipo e Nome são obrigatórios.' }, { status: 400 });
+    }
+
+    if (!['CLIENTE', 'FORNECEDOR', 'AMBOS'].includes(tipo)) {
+      return NextResponse.json({ error: 'Tipo inválido.' }, { status: 400 });
+    }
+
+    const pessoa = await prisma.pessoaFinanceira.update({
+      where: { id: Number(id) },
+      data: {
+        tipo,
+        nomeRazao,
+        documento,
+        contatoPrincipal
+      }
+    });
+
+    return NextResponse.json(pessoa);
+  } catch (error: any) {
+    console.error('Erro ao atualizar pessoa:', error);
+    return NextResponse.json({ error: 'Erro ao atualizar fornecedor/cliente.' }, { status: 500 });
+  }
+}

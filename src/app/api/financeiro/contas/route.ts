@@ -50,13 +50,15 @@ export async function POST(req: Request) {
         eventoId: Number(eventoId),
         areaEventoId: areaEventoId ? Number(areaEventoId) : null,
         pessoaId: Number(pessoaId),
-        statusGeral: 'PENDENTE',
+        statusGeral: 'PENDENTE', // Poderia ser dinâmico se todas estiverem pagas, mas manteremos a lógica do status geral depois
         parcelas: {
           create: parcelas.map((p: any, index: number) => ({
             numeroParcela: index + 1,
             valorEsperado: Number(p.valorEsperado),
             dataVencimento: p.dataVencimento,
-            status: 'PENDENTE'
+            status: p.status || 'PENDENTE',
+            valorPago: p.status === 'PAGO' ? Number(p.valorEsperado) : null,
+            dataPagamento: p.status === 'PAGO' ? new Date().toISOString() : null
           }))
         }
       },
