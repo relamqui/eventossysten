@@ -57,7 +57,7 @@ export async function POST(req: Request) {
             valorEsperado: Number(p.valorEsperado),
             dataVencimento: p.dataVencimento,
             status: p.status || 'PENDENTE',
-            valorPago: p.status === 'PAGO' ? Number(p.valorEsperado) : null,
+            valorPago: p.status === 'PAGO' ? Number(p.valorEsperado) : 0,
             dataPagamento: p.status === 'PAGO' ? new Date().toISOString() : null
           }))
         }
