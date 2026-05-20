@@ -49,6 +49,7 @@ export default function ImportarRelatorioPage() {
   const [baixadoMotivos, setBaixadoMotivos] = useState<Record<number, string>>({});
   const [baixadoConfirmando, setBaixadoConfirmando] = useState<number | null>(null);
   const [baixadoResolvidos, setBaixadoResolvidos] = useState<Set<number>>(new Set());
+  const [baixadoCancelando, setBaixadoCancelando] = useState<number | null>(null);
   const [codigosIgnorados, setCodigosIgnorados] = useState<string[]>([]);
   
   // Estados para renegociação
@@ -147,6 +148,32 @@ export default function ImportarRelatorioPage() {
       alert('Falha na conexão');
     }
     setBaixadoConfirmando(null);
+  };
+
+  const handleCancelarAlerta = async (idx: number) => {
+    const alerta = alertasBaixados[idx];
+    if (!alerta) return;
+    if (!confirm(`Tem certeza que deseja cancelar e ignorar este boleto? Ele não aparecerá mais nos próximos relatórios.`)) return;
+    setBaixadoCancelando(idx);
+    try {
+      const res = await fetch('/api/importar-relatorio/cancelar-alerta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pagadorOriginal: alerta.pagador,
+          boletoOriginalId: alerta.boletoOriginal?.id,
+        }),
+      });
+      if (res.ok) {
+        setBaixadoResolvidos(prev => new Set([...prev, idx]));
+      } else {
+        const err = await res.json();
+        alert(`Erro: ${err.error}`);
+      }
+    } catch (e) {
+      alert('Falha na conexão');
+    }
+    setBaixadoCancelando(null);
   };
 
   const handleMultiploChange = (idx: number, gi: number, field: string, value: number) => {
@@ -549,10 +576,19 @@ export default function ImportarRelatorioPage() {
                         
                         <button
                           onClick={() => handleAbrirRenegociacao(ai)}
-                          disabled={isConfirmando}
-                          style={{ padding: '8px 16px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: isConfirmando ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: isConfirmando ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '6px' }}
+                          disabled={isConfirmando || baixadoCancelando === ai}
+                          style={{ padding: '8px 16px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: (isConfirmando || baixadoCancelando === ai) ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: (isConfirmando || baixadoCancelando === ai) ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '6px' }}
                         >
                           <FileText size={14} /> Nova Emissão / Redução
+                        </button>
+
+                        <button
+                          onClick={() => handleCancelarAlerta(ai)}
+                          disabled={isConfirmando || baixadoCancelando === ai}
+                          style={{ padding: '8px 16px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid rgba(239,68,68,0.5)', borderRadius: '6px', cursor: (isConfirmando || baixadoCancelando === ai) ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: (isConfirmando || baixadoCancelando === ai) ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '6px' }}
+                          title="Cancelar e ignorar este boleto em relatórios futuros"
+                        >
+                          {baixadoCancelando === ai ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Cancelando...</> : <><XCircle size={14} /> Cancelado</>}
                         </button>
                       </div>
 
