@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
+import {
   LayoutDashboard, ArrowRightLeft, Users, Briefcase, Calendar as CalendarIcon,
   TrendingUp, TrendingDown, DollarSign, Plus, X, Loader2, ChevronLeft, ChevronRight, CheckCircle, Clock, ChevronDown, ChevronUp, Edit2, Check, Trash2
 } from 'lucide-react';
@@ -22,10 +22,13 @@ export default function FinanceiroPage() {
   const [isModalAreaOpen, setIsModalAreaOpen] = useState(false);
   const [isModalDiaOpen, setIsModalDiaOpen] = useState(false);
 
+  // Filtros
+  const [buscaPessoa, setBuscaPessoa] = useState('');
+
   // Edit State for Entidades/Áreas
   const [editingPessoaId, setEditingPessoaId] = useState<number | null>(null);
   const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
-  
+
   const [salvando, setSalvando] = useState(false);
 
   // Exclusao State
@@ -46,12 +49,12 @@ export default function FinanceiroPage() {
 
   // Forms
   const [formConta, setFormConta] = useState({
-    tipo: 'PAGAR', descricao: '', valorTotal: '', eventoId: '', 
+    tipo: 'PAGAR', descricao: '', valorTotal: '', eventoId: '',
     areaEventoId: '', pessoaId: '', numParcelas: '1', primeiroVencimento: ''
   });
   const [formPessoa, setFormPessoa] = useState({ tipo: 'FORNECEDOR', nomeRazao: '', documento: '', contatoPrincipal: '' });
   const [formArea, setFormArea] = useState({ nome: '', descricao: '' });
-  
+
   const [formParcelas, setFormParcelas] = useState<Array<{
     id_temp: string;
     numeroParcela: number;
@@ -69,7 +72,7 @@ export default function FinanceiroPage() {
       setFormParcelas([]);
       return;
     }
-    
+
     const parcelasGeradas = [];
     const valorParcela = (valor / numParc).toFixed(2);
     let soma = 0;
@@ -77,7 +80,7 @@ export default function FinanceiroPage() {
     for (let i = 0; i < numParc; i++) {
       const v = i === numParc - 1 ? (valor - soma).toFixed(2) : valorParcela;
       soma += parseFloat(v);
-      
+
       const vencimento = new Date(formConta.primeiroVencimento + 'T12:00:00Z');
       vencimento.setMonth(vencimento.getMonth() + i);
 
@@ -95,14 +98,14 @@ export default function FinanceiroPage() {
 
   const updateParcelaField = (index: number, field: string, value: any) => {
     const newParcelas = [...formParcelas];
-    
+
     if (field === 'valorEsperado') {
       newParcelas[index] = { ...newParcelas[index], valorEsperado: value, isManual: true };
-      
+
       const valorTotal = parseFloat(formConta.valorTotal.replace(',', '.')) || 0;
       let somaManual = 0;
       let qtyNonManual = 0;
-      
+
       newParcelas.forEach(p => {
         if (p.isManual) {
           const val = parseFloat(p.valorEsperado);
@@ -111,11 +114,11 @@ export default function FinanceiroPage() {
           qtyNonManual++;
         }
       });
-      
+
       if (qtyNonManual > 0) {
         const valorRestante = Math.max(0, valorTotal - somaManual);
         const valorPorParcela = (valorRestante / qtyNonManual).toFixed(2);
-        
+
         let soma = 0;
         let count = 0;
         for (let i = 0; i < newParcelas.length; i++) {
@@ -130,7 +133,7 @@ export default function FinanceiroPage() {
     } else {
       newParcelas[index] = { ...newParcelas[index], [field]: value };
     }
-    
+
     setFormParcelas(newParcelas);
   };
 
@@ -148,11 +151,11 @@ export default function FinanceiroPage() {
         fetch('/api/financeiro/pessoas'),
         fetch('/api/eventos')
       ]);
-      if(resContas.ok) setContas(await resContas.json());
-      if(resParcelas.ok) setParcelas(await resParcelas.json());
-      if(resAreas.ok) setAreas(await resAreas.json());
-      if(resPessoas.ok) setPessoas(await resPessoas.json());
-      if(resEventos.ok) setEventos(await resEventos.json());
+      if (resContas.ok) setContas(await resContas.json());
+      if (resParcelas.ok) setParcelas(await resParcelas.json());
+      if (resAreas.ok) setAreas(await resAreas.json());
+      if (resPessoas.ok) setPessoas(await resPessoas.json());
+      if (resEventos.ok) setEventos(await resEventos.json());
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     }
@@ -178,9 +181,10 @@ export default function FinanceiroPage() {
 
       if (res.ok) {
         setIsModalContaOpen(false);
+        setBuscaPessoa('');
         fetchData();
         setFormConta({
-          tipo: 'PAGAR', descricao: '', valorTotal: '', eventoId: '', 
+          tipo: 'PAGAR', descricao: '', valorTotal: '', eventoId: '',
           areaEventoId: '', pessoaId: '', numParcelas: '1', primeiroVencimento: ''
         });
       } else {
@@ -202,11 +206,11 @@ export default function FinanceiroPage() {
       const res = await fetch('/api/financeiro/pessoas', {
         method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       });
-      if (res.ok) { 
-        setIsModalPessoaOpen(false); 
+      if (res.ok) {
+        setIsModalPessoaOpen(false);
         setEditingPessoaId(null);
-        fetchData(); 
-        setFormPessoa({ tipo: 'FORNECEDOR', nomeRazao: '', documento: '', contatoPrincipal: '' }); 
+        fetchData();
+        setFormPessoa({ tipo: 'FORNECEDOR', nomeRazao: '', documento: '', contatoPrincipal: '' });
       }
       else { alert((await res.json()).error); }
     } catch (error) { alert('Erro na conexão'); }
@@ -222,11 +226,11 @@ export default function FinanceiroPage() {
       const res = await fetch('/api/financeiro/areas', {
         method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       });
-      if (res.ok) { 
-        setIsModalAreaOpen(false); 
+      if (res.ok) {
+        setIsModalAreaOpen(false);
         setEditingAreaId(null);
-        fetchData(); 
-        setFormArea({ nome: '', descricao: '' }); 
+        fetchData();
+        setFormArea({ nome: '', descricao: '' });
       }
       else { alert((await res.json()).error); }
     } catch (error) { alert('Erro na conexão'); }
@@ -250,21 +254,21 @@ export default function FinanceiroPage() {
     const novoStatus = isPaying ? 'PAGO' : 'PENDENTE';
     const dataPgto = isPaying ? new Date().toISOString().split('T')[0] : null;
     const valor = isPaying ? parcela.valorEsperado : 0;
-  
+
     try {
       const res = await fetch('/api/financeiro/parcelas', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: parcela.id, status: novoStatus, dataPagamento: dataPgto, valorPago: valor })
       });
-      if(res.ok) {
-         fetchData(); 
-         setParcelasDoDia(prev => prev.map(p => p.id === parcela.id ? {...p, status: novoStatus, dataPagamento: dataPgto, valorPago: valor} : p));
+      if (res.ok) {
+        fetchData();
+        setParcelasDoDia(prev => prev.map(p => p.id === parcela.id ? { ...p, status: novoStatus, dataPagamento: dataPgto, valorPago: valor } : p));
       } else {
-         const err = await res.json();
-         alert('Erro no servidor ao dar baixa: ' + (err.error || 'Desconhecido'));
+        const err = await res.json();
+        alert('Erro no servidor ao dar baixa: ' + (err.error || 'Desconhecido'));
       }
-    } catch(e: any) { alert('Erro na conexão ao tentar dar baixa: ' + e.message); }
+    } catch (e: any) { alert('Erro na conexão ao tentar dar baixa: ' + e.message); }
   };
 
   const startEditParcela = (p: any) => {
@@ -273,26 +277,26 @@ export default function FinanceiroPage() {
   };
 
   const saveEditParcela = async () => {
-    if(!editingParcelaId) return;
+    if (!editingParcelaId) return;
     try {
       const res = await fetch('/api/financeiro/parcelas', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          id: editingParcelaId, 
-          dataVencimento: editParcelaForm.dataVencimento, 
-          valorEsperado: editParcelaForm.valorEsperado 
+        body: JSON.stringify({
+          id: editingParcelaId,
+          dataVencimento: editParcelaForm.dataVencimento,
+          valorEsperado: editParcelaForm.valorEsperado
         })
       });
-      if(res.ok) {
+      if (res.ok) {
         setEditingParcelaId(null);
         fetchData();
-        setParcelasDoDia(prev => prev.map(p => p.id === editingParcelaId ? {...p, dataVencimento: editParcelaForm.dataVencimento, valorEsperado: editParcelaForm.valorEsperado} : p));
+        setParcelasDoDia(prev => prev.map(p => p.id === editingParcelaId ? { ...p, dataVencimento: editParcelaForm.dataVencimento, valorEsperado: editParcelaForm.valorEsperado } : p));
       } else {
         const err = await res.json();
         alert('Erro no servidor ao editar: ' + (err.error || 'Desconhecido'));
       }
-    } catch(e: any) { alert('Erro na conexão ao editar: ' + e.message); }
+    } catch (e: any) { alert('Erro na conexão ao editar: ' + e.message); }
   };
 
   const confirmExclusao = async (e: any) => {
@@ -310,16 +314,16 @@ export default function FinanceiroPage() {
     try {
       setSalvando(true);
       const res = await fetch(`/api/financeiro/contas?id=${contaParaExcluir.id}`, { method: 'DELETE' });
-      if(res.ok) {
-         setExpandedContaId(null);
-         setContaParaExcluir(null);
-         setValorConfirmacaoExclusao('');
-         fetchData();
+      if (res.ok) {
+        setExpandedContaId(null);
+        setContaParaExcluir(null);
+        setValorConfirmacaoExclusao('');
+        fetchData();
       } else {
-         const err = await res.json();
-         alert('Erro no servidor ao cancelar: ' + (err.error || 'Desconhecido'));
+        const err = await res.json();
+        alert('Erro no servidor ao cancelar: ' + (err.error || 'Desconhecido'));
       }
-    } catch(e: any) { alert('Erro na conexão ao tentar cancelar: ' + e.message); }
+    } catch (e: any) { alert('Erro na conexão ao tentar cancelar: ' + e.message); }
     setSalvando(false);
   };
 
@@ -327,8 +331,8 @@ export default function FinanceiroPage() {
   const getDashboardData = () => {
     let aReceberMes = 0;
     let aPagarMes = 0;
-    let saldoProjetado = 0; 
-    
+    let saldoProjetado = 0;
+
     const hoje = new Date();
     const curMonth = hoje.getMonth();
     const curYear = hoje.getFullYear();
@@ -337,7 +341,7 @@ export default function FinanceiroPage() {
       if (p.status === 'PENDENTE') {
         const [py, pm] = p.dataVencimento.split('-');
         const isThisMonth = parseInt(py) === curYear && parseInt(pm) - 1 === curMonth;
-        
+
         if (p.conta?.tipo === 'RECEBER') {
           saldoProjetado += Number(p.valorEsperado);
           if (isThisMonth) aReceberMes += Number(p.valorEsperado);
@@ -363,9 +367,9 @@ export default function FinanceiroPage() {
     });
 
     const eventosArray = Object.values(relatorioEventos)
-       .map(ev => ({ ...ev, lucro: ev.recebido - ev.pago }))
-       .filter(ev => ev.recebido > 0 || ev.pago > 0)
-       .sort((a, b) => b.lucro - a.lucro);
+      .map(ev => ({ ...ev, lucro: ev.recebido - ev.pago }))
+      .filter(ev => ev.recebido > 0 || ev.pago > 0)
+      .sort((a, b) => b.lucro - a.lucro);
 
     return { aReceberMes, aPagarMes, saldoProjetado, eventosArray };
   };
@@ -390,7 +394,7 @@ export default function FinanceiroPage() {
 
   const handleDiaClick = (day: number) => {
     const ps = getParcelasDoDia(day);
-    if(ps.length > 0) {
+    if (ps.length > 0) {
       const d = String(day).padStart(2, '0');
       const m = String(month + 1).padStart(2, '0');
       setDiaSelecionado(`${d}/${m}/${year}`);
@@ -438,12 +442,12 @@ export default function FinanceiroPage() {
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{conta.statusGeral}</div>
             </div>
-            
+
             <button onClick={(e) => { e.stopPropagation(); setContaParaExcluir(conta); setValorConfirmacaoExclusao(''); }} title="Cancelar Lançamento" style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}>
               <Trash2 size={18} />
             </button>
 
-            {isExpanded ? <ChevronUp color="var(--text-secondary)"/> : <ChevronDown color="var(--text-secondary)"/>}
+            {isExpanded ? <ChevronUp color="var(--text-secondary)" /> : <ChevronDown color="var(--text-secondary)" />}
           </div>
         </div>
 
@@ -458,11 +462,11 @@ export default function FinanceiroPage() {
                   <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', backgroundColor: 'var(--surface)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                       <span style={{ fontSize: '0.9rem', fontWeight: 'bold', width: '80px', color: p.status === 'PAGO' ? '#10b981' : (conta.tipo === 'PAGAR' ? '#ef4444' : '#3b82f6') }}>Parc. {p.numeroParcela}</span>
-                      
+
                       {isEditing ? (
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <input type="date" value={editParcelaForm.dataVencimento} onChange={e => setEditParcelaForm({...editParcelaForm, dataVencimento: e.target.value})} style={{...inputStyle, padding: '4px 8px'}} />
-                          <input type="number" value={editParcelaForm.valorEsperado} onChange={e => setEditParcelaForm({...editParcelaForm, valorEsperado: e.target.value})} style={{...inputStyle, padding: '4px 8px', width: '100px'}} />
+                          <input type="date" value={editParcelaForm.dataVencimento} onChange={e => setEditParcelaForm({ ...editParcelaForm, dataVencimento: e.target.value })} style={{ ...inputStyle, padding: '4px 8px' }} />
+                          <input type="number" value={editParcelaForm.valorEsperado} onChange={e => setEditParcelaForm({ ...editParcelaForm, valorEsperado: e.target.value })} style={{ ...inputStyle, padding: '4px 8px', width: '100px' }} />
                         </div>
                       ) : (
                         <div style={{ display: 'flex', gap: '16px', fontSize: '0.9rem' }}>
@@ -471,7 +475,7 @@ export default function FinanceiroPage() {
                         </div>
                       )}
                     </div>
-                    
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {p.status === 'PAGO' ? (
                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold' }}><CheckCircle size={14} /> CONCLUÍDO</span>
@@ -480,9 +484,9 @@ export default function FinanceiroPage() {
                       )}
 
                       {isEditing ? (
-                        <button onClick={saveEditParcela} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Check size={14}/></button>
+                        <button onClick={saveEditParcela} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Check size={14} /></button>
                       ) : (
-                        <button onClick={() => startEditParcela(p)} style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Edit2 size={14}/></button>
+                        <button onClick={() => startEditParcela(p)} style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Edit2 size={14} /></button>
                       )}
                       <button onClick={() => handleDarBaixa(p)} style={{ background: p.status === 'PAGO' ? 'transparent' : '#10b981', color: p.status === 'PAGO' ? 'var(--text-secondary)' : '#fff', border: p.status === 'PAGO' ? '1px solid var(--border)' : 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
                         {p.status === 'PAGO' ? 'Desfazer Baixa' : 'Dar Baixa'}
@@ -525,96 +529,96 @@ export default function FinanceiroPage() {
         <>
           {/* DASHBOARD */}
           {activeTab === 'dashboard' && (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-                 <div style={{ backgroundColor: 'var(--surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>A Receber (Neste Mês)</span>
-                     <TrendingUp color="#3b82f6" size={24} />
-                   </div>
-                   <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>R$ {aReceberMes.toFixed(2)}</div>
-                 </div>
-                 
-                 <div style={{ backgroundColor: 'var(--surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>A Pagar (Neste Mês)</span>
-                     <TrendingDown color="#ef4444" size={24} />
-                   </div>
-                   <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ef4444' }}>R$ {aPagarMes.toFixed(2)}</div>
-                 </div>
-
-                 <div style={{ backgroundColor: 'var(--surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Saldo Pendente Projetado</span>
-                     <DollarSign color="#10b981" size={24} />
-                   </div>
-                   <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10b981' }}>R$ {saldoProjetado.toFixed(2)}</div>
-                 </div>
-               </div>
-
-               {/* TABELA DE EVENTOS */}
-               <div style={{ backgroundColor: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                  <div style={{ padding: '20px', borderBottom: '1px solid var(--border)' }}>
-                    <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Relatório por Evento (Realizado)</h2>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Calculado com base nas parcelas já confirmadas como "CONCLUÍDO".</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                <div style={{ backgroundColor: 'var(--surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>A Receber (Neste Mês)</span>
+                    <TrendingUp color="#3b82f6" size={24} />
                   </div>
-                  {eventosArray.length === 0 ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Nenhum fluxo de caixa realizado ainda.</div>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}>
-                          <th style={{ padding: '16px 20px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>Evento</th>
-                          <th style={{ padding: '16px 20px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>Total Recebido</th>
-                          <th style={{ padding: '16px 20px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>Total Pago</th>
-                          <th style={{ padding: '16px 20px', color: 'var(--text-secondary)', fontWeight: 'normal', textAlign: 'right' }}>Lucro Atual</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {eventosArray.map(ev => (
-                          <tr key={ev.nome} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '16px 20px', fontWeight: 'bold' }}>{ev.nome}</td>
-                            <td style={{ padding: '16px 20px', color: '#3b82f6' }}>R$ {ev.recebido.toFixed(2)}</td>
-                            <td style={{ padding: '16px 20px', color: '#ef4444' }}>R$ {ev.pago.toFixed(2)}</td>
-                            <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 'bold', color: ev.lucro >= 0 ? '#10b981' : '#ef4444' }}>
-                              R$ {ev.lucro.toFixed(2)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-               </div>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>R$ {aReceberMes.toFixed(2)}</div>
+                </div>
 
-               {/* LOG DE LANÇAMENTOS NO DASHBOARD */}
-               <div style={{ marginTop: '12px' }}>
-                 <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '16px' }}>Visão Geral de Lançamentos</h2>
-                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                    {/* Coluna A Pagar */}
-                    <div>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#ef4444', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <TrendingDown size={20} /> Lançamentos a Pagar
-                      </h3>
-                      {contasPagar.length === 0 ? (
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nenhum lançamento pendente.</div>
-                      ) : (
-                        contasPagar.map(c => renderContaItem(c))
-                      )}
-                    </div>
-                    {/* Coluna A Receber */}
-                    <div>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#3b82f6', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <TrendingUp size={20} /> Lançamentos a Receber
-                      </h3>
-                      {contasReceber.length === 0 ? (
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nenhum lançamento pendente.</div>
-                      ) : (
-                        contasReceber.map(c => renderContaItem(c))
-                      )}
-                    </div>
-                 </div>
-               </div>
-             </div>
+                <div style={{ backgroundColor: 'var(--surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>A Pagar (Neste Mês)</span>
+                    <TrendingDown color="#ef4444" size={24} />
+                  </div>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ef4444' }}>R$ {aPagarMes.toFixed(2)}</div>
+                </div>
+
+                <div style={{ backgroundColor: 'var(--surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Saldo Pendente Projetado</span>
+                    <DollarSign color="#10b981" size={24} />
+                  </div>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10b981' }}>R$ {saldoProjetado.toFixed(2)}</div>
+                </div>
+              </div>
+
+              {/* TABELA DE EVENTOS */}
+              <div style={{ backgroundColor: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                <div style={{ padding: '20px', borderBottom: '1px solid var(--border)' }}>
+                  <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Relatório por Evento (Realizado)</h2>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Calculado com base nas parcelas já confirmadas como "CONCLUÍDO".</p>
+                </div>
+                {eventosArray.length === 0 ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Nenhum fluxo de caixa realizado ainda.</div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}>
+                        <th style={{ padding: '16px 20px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>Evento</th>
+                        <th style={{ padding: '16px 20px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>Total Recebido</th>
+                        <th style={{ padding: '16px 20px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>Total Pago</th>
+                        <th style={{ padding: '16px 20px', color: 'var(--text-secondary)', fontWeight: 'normal', textAlign: 'right' }}>A Pagar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {eventosArray.map(ev => (
+                        <tr key={ev.nome} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '16px 20px', fontWeight: 'bold' }}>{ev.nome}</td>
+                          <td style={{ padding: '16px 20px', color: '#3b82f6' }}>R$ {ev.recebido.toFixed(2)}</td>
+                          <td style={{ padding: '16px 20px', color: '#ef4444' }}>R$ {ev.pago.toFixed(2)}</td>
+                          <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 'bold', color: ev.lucro >= 0 ? '#10b981' : '#ef4444' }}>
+                            R$ {ev.lucro.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* LOG DE LANÇAMENTOS NO DASHBOARD */}
+              <div style={{ marginTop: '12px' }}>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '16px' }}>Visão Geral de Lançamentos</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                  {/* Coluna A Pagar */}
+                  <div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#ef4444', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <TrendingDown size={20} /> Lançamentos a Pagar
+                    </h3>
+                    {contasPagar.length === 0 ? (
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nenhum lançamento pendente.</div>
+                    ) : (
+                      contasPagar.map(c => renderContaItem(c))
+                    )}
+                  </div>
+                  {/* Coluna A Receber */}
+                  <div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#3b82f6', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <TrendingUp size={20} /> Lançamentos a Receber
+                    </h3>
+                    {contasReceber.length === 0 ? (
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nenhum lançamento pendente.</div>
+                    ) : (
+                      contasReceber.map(c => renderContaItem(c))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* CALENDARIO */}
@@ -684,7 +688,7 @@ export default function FinanceiroPage() {
                   contasPagar.map(c => renderContaItem(c))
                 )}
               </div>
-              
+
               <div>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#3b82f6', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <TrendingUp size={24} /> Lançamentos a Receber
@@ -740,63 +744,64 @@ export default function FinanceiroPage() {
               <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Parcelas do dia {diaSelecionado}</h2>
               <button onClick={() => setIsModalDiaOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={24} /></button>
             </div>
-            
+
             <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {parcelasDoDia.map(p => {
                 const isEditing = editingParcelaId === p.id;
                 const corDestino = p.status === 'PAGO' ? '#10b981' : (p.conta.tipo === 'PAGAR' ? '#ef4444' : '#3b82f6');
-                
+
                 return (
-                <div key={p.id} style={{ backgroundColor: 'var(--surface)', border: `1px solid ${corDestino}40`, borderRadius: '8px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    {isEditing ? (
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                        <input type="date" value={editParcelaForm.dataVencimento} onChange={e => setEditParcelaForm({...editParcelaForm, dataVencimento: e.target.value})} style={{...inputStyle, padding: '4px 8px'}} />
-                        <input type="number" value={editParcelaForm.valorEsperado} onChange={e => setEditParcelaForm({...editParcelaForm, valorEsperado: e.target.value})} style={{...inputStyle, padding: '4px 8px', width: '100px'}} />
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '4px', color: corDestino }}>
-                         {p.conta.tipo === 'PAGAR' ? 'A Pagar' : 'A Receber'}: R$ {Number(p.valorEsperado).toFixed(2)}
-                      </div>
-                    )}
-                    <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{p.conta.descricao}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      Pessoa: {p.conta.pessoa?.nomeRazao} | Parcela {p.numeroParcela}
-                    </div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                    {p.status === 'PAGO' ? (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                        <CheckCircle size={16} /> Concluído
-                      </span>
-                    ) : (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: p.conta.tipo === 'PAGAR' ? '#ef4444' : '#3b82f6', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                        <Clock size={16} /> Pendente
-                      </span>
-                    )}
-                    
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                  <div key={p.id} style={{ backgroundColor: 'var(--surface)', border: `1px solid ${corDestino}40`, borderRadius: '8px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
                       {isEditing ? (
-                        <button onClick={saveEditParcela} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Check size={14}/></button>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                          <input type="date" value={editParcelaForm.dataVencimento} onChange={e => setEditParcelaForm({ ...editParcelaForm, dataVencimento: e.target.value })} style={{ ...inputStyle, padding: '4px 8px' }} />
+                          <input type="number" value={editParcelaForm.valorEsperado} onChange={e => setEditParcelaForm({ ...editParcelaForm, valorEsperado: e.target.value })} style={{ ...inputStyle, padding: '4px 8px', width: '100px' }} />
+                        </div>
                       ) : (
-                        <button onClick={() => startEditParcela(p)} style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Edit2 size={14}/></button>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '4px', color: corDestino }}>
+                          {p.conta.tipo === 'PAGAR' ? 'A Pagar' : 'A Receber'}: R$ {Number(p.valorEsperado).toFixed(2)}
+                        </div>
                       )}
-                      
-                      <button 
-                        onClick={() => handleDarBaixa(p)}
-                        style={{ 
-                          padding: '6px 12px', borderRadius: '6px', border: 'none', fontWeight: 'bold', cursor: 'pointer',
-                          backgroundColor: p.status === 'PAGO' ? 'var(--background)' : '#10b981',
-                          color: p.status === 'PAGO' ? 'var(--text-secondary)' : '#fff',
-                          borderStyle: 'solid', borderWidth: '1px', borderColor: p.status === 'PAGO' ? 'var(--border)' : '#10b981'
-                        }}>
-                        {p.status === 'PAGO' ? 'Desfazer' : 'Dar Baixa'}
-                      </button>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{p.conta.descricao}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Pessoa: {p.conta.pessoa?.nomeRazao} | Parcela {p.numeroParcela}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                      {p.status === 'PAGO' ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                          <CheckCircle size={16} /> Concluído
+                        </span>
+                      ) : (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: p.conta.tipo === 'PAGAR' ? '#ef4444' : '#3b82f6', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                          <Clock size={16} /> Pendente
+                        </span>
+                      )}
+
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {isEditing ? (
+                          <button onClick={saveEditParcela} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Check size={14} /></button>
+                        ) : (
+                          <button onClick={() => startEditParcela(p)} style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Edit2 size={14} /></button>
+                        )}
+
+                        <button
+                          onClick={() => handleDarBaixa(p)}
+                          style={{
+                            padding: '6px 12px', borderRadius: '6px', border: 'none', fontWeight: 'bold', cursor: 'pointer',
+                            backgroundColor: p.status === 'PAGO' ? 'var(--background)' : '#10b981',
+                            color: p.status === 'PAGO' ? 'var(--text-secondary)' : '#fff',
+                            borderStyle: 'solid', borderWidth: '1px', borderColor: p.status === 'PAGO' ? 'var(--border)' : '#10b981'
+                          }}>
+                          {p.status === 'PAGO' ? 'Desfazer' : 'Dar Baixa'}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )})}
+                )
+              })}
             </div>
           </div>
         </div>
@@ -810,47 +815,56 @@ export default function FinanceiroPage() {
               <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Novo Lançamento</h2>
               <button onClick={() => setIsModalContaOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={24} /></button>
             </div>
-            
+
             <form onSubmit={handleSalvarConta} style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Tipo</label>
-                  <select required value={formConta.tipo} onChange={e => setFormConta({...formConta, tipo: e.target.value})} style={inputStyle}>
+                  <select required value={formConta.tipo} onChange={e => setFormConta({ ...formConta, tipo: e.target.value })} style={inputStyle}>
                     <option value="PAGAR">A Pagar (Saída)</option>
                     <option value="RECEBER">A Receber (Entrada)</option>
                   </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Valor Total (R$)</label>
-                  <input required type="number" step="0.01" value={formConta.valorTotal} onChange={e => setFormConta({...formConta, valorTotal: e.target.value})} style={inputStyle} placeholder="1500.00" />
+                  <input required type="number" step="0.01" value={formConta.valorTotal} onChange={e => setFormConta({ ...formConta, valorTotal: e.target.value })} style={inputStyle} placeholder="1500.00" />
                 </div>
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Descrição da Conta</label>
-                <input required value={formConta.descricao} onChange={e => setFormConta({...formConta, descricao: e.target.value})} style={inputStyle} placeholder="Ex: Contrato Banda XYZ" />
+                <input required value={formConta.descricao} onChange={e => setFormConta({ ...formConta, descricao: e.target.value })} style={inputStyle} placeholder="Ex: Contrato Banda XYZ" />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Evento Vinculado</label>
-                  <select required value={formConta.eventoId} onChange={e => setFormConta({...formConta, eventoId: e.target.value})} style={inputStyle}>
+                  <select required value={formConta.eventoId} onChange={e => setFormConta({ ...formConta, eventoId: e.target.value })} style={inputStyle}>
                     <option value="">Selecione...</option>
                     {eventos.map(ev => <option key={ev.id} value={ev.id}>{ev.nome}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Pessoa (Fornecedor/Cliente)</label>
-                  <select required value={formConta.pessoaId} onChange={e => setFormConta({...formConta, pessoaId: e.target.value})} style={inputStyle}>
+                  <input
+                    type="text"
+                    placeholder="Buscar pessoa..."
+                    value={buscaPessoa}
+                    onChange={e => setBuscaPessoa(e.target.value)}
+                    style={{ ...inputStyle, marginBottom: '8px' }}
+                  />
+                  <select required value={formConta.pessoaId} onChange={e => setFormConta({ ...formConta, pessoaId: e.target.value })} style={inputStyle}>
                     <option value="">Selecione...</option>
-                    {pessoas.map(p => <option key={p.id} value={p.id}>{p.nomeRazao}</option>)}
+                    {pessoas
+                      .filter(p => p.nomeRazao.toLowerCase().includes(buscaPessoa.toLowerCase()))
+                      .map(p => <option key={p.id} value={p.id}>{p.nomeRazao}</option>)}
                   </select>
                 </div>
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Área do Evento (Opcional)</label>
-                <select value={formConta.areaEventoId} onChange={e => setFormConta({...formConta, areaEventoId: e.target.value})} style={inputStyle}>
+                <select value={formConta.areaEventoId} onChange={e => setFormConta({ ...formConta, areaEventoId: e.target.value })} style={inputStyle}>
                   <option value="">Nenhuma / Geral</option>
                   {areas.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
                 </select>
@@ -861,11 +875,11 @@ export default function FinanceiroPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Nº de Parcelas</label>
-                    <input required type="number" min="1" value={formConta.numParcelas} onChange={e => setFormConta({...formConta, numParcelas: e.target.value})} style={inputStyle} />
+                    <input required type="number" min="1" value={formConta.numParcelas} onChange={e => setFormConta({ ...formConta, numParcelas: e.target.value })} style={inputStyle} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>1º Vencimento base</label>
-                    <input required type="date" value={formConta.primeiroVencimento} onChange={e => setFormConta({...formConta, primeiroVencimento: e.target.value})} style={inputStyle} />
+                    <input required type="date" value={formConta.primeiroVencimento} onChange={e => setFormConta({ ...formConta, primeiroVencimento: e.target.value })} style={inputStyle} />
                   </div>
                 </div>
 
@@ -880,13 +894,13 @@ export default function FinanceiroPage() {
                           <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginRight: '4px' }}>R$</span>
                           <input required type="number" step="0.01" value={p.valorEsperado} onChange={e => updateParcelaField(idx, 'valorEsperado', e.target.value)} style={{ ...inputStyle, border: 'none', padding: '8px 0' }} />
                         </div>
-                        <button type="button" onClick={() => updateParcelaField(idx, 'status', p.status === 'PAGO' ? 'PENDENTE' : 'PAGO')} style={{ 
+                        <button type="button" onClick={() => updateParcelaField(idx, 'status', p.status === 'PAGO' ? 'PENDENTE' : 'PAGO')} style={{
                           padding: '8px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', width: '100px',
                           backgroundColor: p.status === 'PAGO' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
                           color: p.status === 'PAGO' ? '#10b981' : '#3b82f6',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                         }}>
-                          {p.status === 'PAGO' ? <><CheckCircle size={14}/> Paga</> : <><Clock size={14}/> Pendente</>}
+                          {p.status === 'PAGO' ? <><CheckCircle size={14} /> Paga</> : <><Clock size={14} /> Pendente</>}
                         </button>
                       </div>
                     ))}
@@ -910,14 +924,14 @@ export default function FinanceiroPage() {
           <div style={{ backgroundColor: 'var(--background)', width: '100%', maxWidth: '400px', borderRadius: '12px', padding: '24px' }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '16px' }}>{editingPessoaId ? 'Editar Pessoa' : 'Nova Pessoa (Entidade)'}</h2>
             <form onSubmit={handleSalvarPessoa} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <select required value={formPessoa.tipo} onChange={e => setFormPessoa({...formPessoa, tipo: e.target.value})} style={inputStyle}>
+              <select required value={formPessoa.tipo} onChange={e => setFormPessoa({ ...formPessoa, tipo: e.target.value })} style={inputStyle}>
                 <option value="FORNECEDOR">Fornecedor</option>
                 <option value="CLIENTE">Cliente</option>
                 <option value="AMBOS">Ambos</option>
               </select>
-              <input required placeholder="Nome ou Razão Social" value={formPessoa.nomeRazao} onChange={e => setFormPessoa({...formPessoa, nomeRazao: e.target.value})} style={inputStyle} />
-              <input placeholder="CPF/CNPJ" value={formPessoa.documento} onChange={e => setFormPessoa({...formPessoa, documento: e.target.value})} style={inputStyle} />
-              <input placeholder="Contato (Telefone/Email)" value={formPessoa.contatoPrincipal} onChange={e => setFormPessoa({...formPessoa, contatoPrincipal: e.target.value})} style={inputStyle} />
+              <input required placeholder="Nome ou Razão Social" value={formPessoa.nomeRazao} onChange={e => setFormPessoa({ ...formPessoa, nomeRazao: e.target.value })} style={inputStyle} />
+              <input placeholder="CPF/CNPJ" value={formPessoa.documento} onChange={e => setFormPessoa({ ...formPessoa, documento: e.target.value })} style={inputStyle} />
+              <input placeholder="Contato (Telefone/Email)" value={formPessoa.contatoPrincipal} onChange={e => setFormPessoa({ ...formPessoa, contatoPrincipal: e.target.value })} style={inputStyle} />
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <button type="button" onClick={() => { setIsModalPessoaOpen(false); setEditingPessoaId(null); }} style={{ flex: 1, padding: '10px', background: 'transparent', color: '#fff', border: '1px solid var(--border)', borderRadius: '6px' }}>Cancelar</button>
                 <button type="submit" disabled={salvando} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px' }}>Salvar</button>
@@ -932,8 +946,8 @@ export default function FinanceiroPage() {
           <div style={{ backgroundColor: 'var(--background)', width: '100%', maxWidth: '400px', borderRadius: '12px', padding: '24px' }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '16px' }}>{editingAreaId ? 'Editar Área de Custo' : 'Nova Área de Custo'}</h2>
             <form onSubmit={handleSalvarArea} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <input required placeholder="Nome (Ex: Iluminação)" value={formArea.nome} onChange={e => setFormArea({...formArea, nome: e.target.value})} style={inputStyle} />
-              <input placeholder="Descrição" value={formArea.descricao} onChange={e => setFormArea({...formArea, descricao: e.target.value})} style={inputStyle} />
+              <input required placeholder="Nome (Ex: Iluminação)" value={formArea.nome} onChange={e => setFormArea({ ...formArea, nome: e.target.value })} style={inputStyle} />
+              <input placeholder="Descrição" value={formArea.descricao} onChange={e => setFormArea({ ...formArea, descricao: e.target.value })} style={inputStyle} />
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <button type="button" onClick={() => { setIsModalAreaOpen(false); setEditingAreaId(null); }} style={{ flex: 1, padding: '10px', background: 'transparent', color: '#fff', border: '1px solid var(--border)', borderRadius: '6px' }}>Cancelar</button>
                 <button type="submit" disabled={salvando} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px' }}>Salvar</button>
@@ -951,20 +965,20 @@ export default function FinanceiroPage() {
               <Trash2 size={24} /> Confirmar Cancelamento
             </h2>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Você está prestes a excluir o lançamento <strong>{contaParaExcluir.descricao}</strong>. 
+              Você está prestes a excluir o lançamento <strong>{contaParaExcluir.descricao}</strong>.
               Esta ação apagará a conta e todas as suas parcelas permanentemente.
             </p>
             <p style={{ fontSize: '0.9rem', marginBottom: '16px' }}>
               Para confirmar, digite o valor total exato: <strong style={{ color: '#fff' }}>{contaParaExcluir.valorTotal.toFixed(2)}</strong>
             </p>
             <form onSubmit={confirmExclusao} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <input 
+              <input
                 autoFocus
-                required 
-                placeholder="Ex: 1500.00" 
-                value={valorConfirmacaoExclusao} 
-                onChange={e => setValorConfirmacaoExclusao(e.target.value)} 
-                style={inputStyle} 
+                required
+                placeholder="Ex: 1500.00"
+                value={valorConfirmacaoExclusao}
+                onChange={e => setValorConfirmacaoExclusao(e.target.value)}
+                style={inputStyle}
               />
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button type="button" onClick={() => setContaParaExcluir(null)} style={{ flex: 1, padding: '10px', background: 'transparent', color: '#fff', border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer' }}>Voltar</button>
