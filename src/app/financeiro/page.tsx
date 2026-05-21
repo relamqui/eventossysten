@@ -24,6 +24,7 @@ export default function FinanceiroPage() {
 
   // Filtros
   const [buscaPessoa, setBuscaPessoa] = useState('');
+  const [isPessoaDropdownOpen, setIsPessoaDropdownOpen] = useState(false);
 
   // Edit State for Entidades/Áreas
   const [editingPessoaId, setEditingPessoaId] = useState<number | null>(null);
@@ -844,21 +845,52 @@ export default function FinanceiroPage() {
                     {eventos.map(ev => <option key={ev.id} value={ev.id}>{ev.nome}</option>)}
                   </select>
                 </div>
-                <div>
+                <div style={{ position: 'relative' }}>
                   <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Pessoa (Fornecedor/Cliente)</label>
                   <input
                     type="text"
-                    placeholder="Buscar pessoa..."
+                    required={!formConta.pessoaId}
+                    placeholder="Selecione ou busque..."
                     value={buscaPessoa}
-                    onChange={e => setBuscaPessoa(e.target.value)}
-                    style={{ ...inputStyle, marginBottom: '8px' }}
+                    onChange={e => {
+                      setBuscaPessoa(e.target.value);
+                      setFormConta({ ...formConta, pessoaId: '' });
+                      setIsPessoaDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsPessoaDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setIsPessoaDropdownOpen(false), 200)}
+                    style={inputStyle}
                   />
-                  <select required value={formConta.pessoaId} onChange={e => setFormConta({ ...formConta, pessoaId: e.target.value })} style={inputStyle}>
-                    <option value="">Selecione...</option>
-                    {pessoas
-                      .filter(p => p.nomeRazao.toLowerCase().includes(buscaPessoa.toLowerCase()))
-                      .map(p => <option key={p.id} value={p.id}>{p.nomeRazao}</option>)}
-                  </select>
+                  {isPessoaDropdownOpen && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                      backgroundColor: 'var(--surface)', border: '1px solid var(--border)', 
+                      borderRadius: '6px', marginTop: '4px', maxHeight: '200px', overflowY: 'auto',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+                    }}>
+                      {pessoas.filter(p => p.nomeRazao.toLowerCase().includes(buscaPessoa.toLowerCase())).map(p => (
+                        <div
+                          key={p.id}
+                          onMouseDown={() => {
+                            setFormConta({ ...formConta, pessoaId: p.id });
+                            setBuscaPessoa(p.nomeRazao);
+                            setIsPessoaDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: '10px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            color: 'var(--text-primary)', fontSize: '0.9rem'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          {p.nomeRazao}
+                        </div>
+                      ))}
+                      {pessoas.filter(p => p.nomeRazao.toLowerCase().includes(buscaPessoa.toLowerCase())).length === 0 && (
+                        <div style={{ padding: '10px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nenhuma pessoa encontrada.</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
