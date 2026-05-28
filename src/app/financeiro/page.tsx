@@ -21,6 +21,7 @@ export default function FinanceiroPage() {
   const [isModalPessoaOpen, setIsModalPessoaOpen] = useState(false);
   const [isModalAreaOpen, setIsModalAreaOpen] = useState(false);
   const [isModalDiaOpen, setIsModalDiaOpen] = useState(false);
+  const [isModalContabilOpen, setIsModalContabilOpen] = useState(false);
 
   // Filtros
   const [buscaPessoa, setBuscaPessoa] = useState('');
@@ -55,6 +56,7 @@ export default function FinanceiroPage() {
   });
   const [formPessoa, setFormPessoa] = useState({ tipo: 'FORNECEDOR', nomeRazao: '', documento: '', contatoPrincipal: '' });
   const [formArea, setFormArea] = useState({ nome: '', descricao: '' });
+  const [formContabil, setFormContabil] = useState({ descricao: '', valor: '', pago: false, data: '' });
 
   const [formParcelas, setFormParcelas] = useState<Array<{
     id_temp: string;
@@ -161,6 +163,15 @@ export default function FinanceiroPage() {
       console.error('Erro ao carregar dados:', error);
     }
     setLoading(false);
+  };
+
+  const handleSalvarContabil = async (e: any) => {
+    e.preventDefault();
+    setSalvando(true);
+    // Aqui seria a chamada para a API caso precise salvar em um endpoint específico
+    setIsModalContabilOpen(false);
+    setFormContabil({ descricao: '', valor: '', pago: false, data: '' });
+    setSalvando(false);
   };
 
   const handleSalvarConta = async (e: any) => {
@@ -510,10 +521,16 @@ export default function FinanceiroPage() {
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>Gestão Financeira</h1>
-        <button onClick={() => setIsModalContaOpen(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-          <Plus size={18} /> Novo Lançamento
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button onClick={() => setIsModalContabilOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+            <Plus size={18} /> Lançamento Contábil
+          </button>
+          <button onClick={() => setIsModalContaOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+            <Plus size={18} /> Novo Lançamento
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', marginBottom: '24px', overflowX: 'auto' }}>
@@ -809,6 +826,39 @@ export default function FinanceiroPage() {
       )}
 
       {/* OUTROS MODAIS MANTIDOS (Nova Conta, Nova Pessoa, Nova Area)... */}
+      {isModalContabilOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '20px' }}>
+          <div style={{ backgroundColor: 'var(--background)', width: '100%', maxWidth: '400px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Lançamento Contábil</h2>
+              <button onClick={() => setIsModalContabilOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={24} /></button>
+            </div>
+            <form onSubmit={handleSalvarContabil} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Descrição</label>
+                <input required value={formContabil.descricao} onChange={e => setFormContabil({ ...formContabil, descricao: e.target.value })} style={inputStyle} placeholder="Descrição" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Valor (R$)</label>
+                <input required type="number" step="0.01" value={formContabil.valor} onChange={e => setFormContabil({ ...formContabil, valor: e.target.value })} style={inputStyle} placeholder="0.00" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Data</label>
+                <input required type="date" value={formContabil.data} onChange={e => setFormContabil({ ...formContabil, data: e.target.value })} style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input type="checkbox" checked={formContabil.pago} onChange={e => setFormContabil({ ...formContabil, pago: e.target.checked })} id="checkbox-pago" style={{ width: '18px', height: '18px' }} />
+                <label htmlFor="checkbox-pago" style={{ fontSize: '0.9rem', color: 'var(--text-primary)', cursor: 'pointer' }}>Pago</label>
+              </div>
+              <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button type="button" onClick={() => setIsModalContabilOpen(false)} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer' }}>Cancelar</button>
+                <button type="submit" disabled={salvando} style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{salvando ? 'Salvando...' : 'Salvar'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {isModalContaOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '20px' }}>
           <div style={{ backgroundColor: 'var(--background)', width: '100%', maxWidth: '600px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
