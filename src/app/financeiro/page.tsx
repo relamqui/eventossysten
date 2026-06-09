@@ -26,6 +26,7 @@ export default function FinanceiroPage() {
   // Filtros
   const [buscaPessoa, setBuscaPessoa] = useState('');
   const [isPessoaDropdownOpen, setIsPessoaDropdownOpen] = useState(false);
+  const [buscaLancamento, setBuscaLancamento] = useState('');
 
   // Edit State for Entidades/Áreas
   const [editingPessoaId, setEditingPessoaId] = useState<number | null>(null);
@@ -543,6 +544,23 @@ export default function FinanceiroPage() {
   const contasPagar = contas.filter(c => c.tipo === 'PAGAR');
   const contasReceber = contas.filter(c => c.tipo === 'RECEBER');
 
+  const termoLancamento = buscaLancamento.toLowerCase();
+  const contasPagarFiltradas = contasPagar.filter(c =>
+    !buscaLancamento ||
+    c.descricao?.toLowerCase().includes(termoLancamento) ||
+    c.pessoa?.nomeRazao?.toLowerCase().includes(termoLancamento) ||
+    c.evento?.nome?.toLowerCase().includes(termoLancamento) ||
+    c.valorTotal?.toString().includes(termoLancamento)
+  );
+
+  const contasReceberFiltradas = contasReceber.filter(c =>
+    !buscaLancamento ||
+    c.descricao?.toLowerCase().includes(termoLancamento) ||
+    c.pessoa?.nomeRazao?.toLowerCase().includes(termoLancamento) ||
+    c.evento?.nome?.toLowerCase().includes(termoLancamento) ||
+    c.valorTotal?.toString().includes(termoLancamento)
+  );
+
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -721,27 +739,44 @@ export default function FinanceiroPage() {
 
           {/* LANÇAMENTOS (GRID DUPLA) */}
           {activeTab === 'lancamentos' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#ef4444', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <TrendingDown size={24} /> Lançamentos a Pagar
-                </h3>
-                {contasPagar.length === 0 ? (
-                  <div style={{ color: 'var(--text-secondary)' }}>Nenhum lançamento.</div>
-                ) : (
-                  contasPagar.map(c => renderContaItem(c))
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <input
+                  type="text"
+                  placeholder="Buscar lançamento por descrição, entidade, evento ou valor..."
+                  value={buscaLancamento}
+                  onChange={e => setBuscaLancamento(e.target.value)}
+                  style={{ ...inputStyle, maxWidth: '500px' }}
+                />
+                {buscaLancamento && (
+                  <button onClick={() => setBuscaLancamento('')} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                    <X size={20} />
+                  </button>
                 )}
               </div>
 
-              <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#3b82f6', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <TrendingUp size={24} /> Lançamentos a Receber
-                </h3>
-                {contasReceber.length === 0 ? (
-                  <div style={{ color: 'var(--text-secondary)' }}>Nenhum lançamento.</div>
-                ) : (
-                  contasReceber.map(c => renderContaItem(c))
-                )}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#ef4444', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <TrendingDown size={24} /> Lançamentos a Pagar
+                  </h3>
+                  {contasPagarFiltradas.length === 0 ? (
+                    <div style={{ color: 'var(--text-secondary)' }}>Nenhum lançamento.</div>
+                  ) : (
+                    contasPagarFiltradas.map(c => renderContaItem(c))
+                  )}
+                </div>
+
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#3b82f6', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <TrendingUp size={24} /> Lançamentos a Receber
+                  </h3>
+                  {contasReceberFiltradas.length === 0 ? (
+                    <div style={{ color: 'var(--text-secondary)' }}>Nenhum lançamento.</div>
+                  ) : (
+                    contasReceberFiltradas.map(c => renderContaItem(c))
+                  )}
+                </div>
               </div>
             </div>
           )}
