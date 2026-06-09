@@ -261,6 +261,32 @@ export default function FinanceiroPage() {
     setIsModalAreaOpen(true);
   };
 
+  const handleDeletePessoa = async (id: number) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta entidade?')) return;
+    try {
+      const res = await fetch(`/api/financeiro/pessoas?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchData();
+      } else {
+        const err = await res.json();
+        alert(err.error);
+      }
+    } catch (e) { alert('Erro na conexão ao deletar'); }
+  };
+
+  const handleDeleteArea = async (id: number) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta área de custo?')) return;
+    try {
+      const res = await fetch(`/api/financeiro/areas?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchData();
+      } else {
+        const err = await res.json();
+        alert(err.error);
+      }
+    } catch (e) { alert('Erro na conexão ao deletar'); }
+  };
+
   const handleDarBaixa = async (parcela: any) => {
     const isPaying = parcela.status === 'PENDENTE';
     const novoStatus = isPaying ? 'PAGO' : 'PENDENTE';
@@ -729,9 +755,14 @@ export default function FinanceiroPage() {
                   <span style={{ color: 'var(--text-secondary)', width: '100px' }}>{p.tipo}</span>
                   <strong style={{ flex: 1 }}>{p.nomeRazao}</strong>
                   <span style={{ color: 'var(--text-secondary)' }}>{p.documento || '-'}</span>
-                  <button onClick={() => handleEditPessoa(p)} style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Editar">
-                    <Edit2 size={18} />
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => handleEditPessoa(p)} style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Editar">
+                      <Edit2 size={18} />
+                    </button>
+                    <button onClick={() => handleDeletePessoa(p.id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Excluir">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -743,9 +774,14 @@ export default function FinanceiroPage() {
               {areas.map(a => (
                 <div key={a.id} style={{ padding: '12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center' }}>
                   <strong style={{ flex: 1 }}>{a.nome} <span style={{ color: 'var(--text-secondary)', marginLeft: '12px', fontWeight: 'normal' }}>{a.descricao}</span></strong>
-                  <button onClick={() => handleEditArea(a)} style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Editar">
-                    <Edit2 size={18} />
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => handleEditArea(a)} style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Editar">
+                      <Edit2 size={18} />
+                    </button>
+                    <button onClick={() => handleDeleteArea(a.id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Excluir">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -56,3 +56,23 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Erro ao atualizar área de custo.' }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID é obrigatório para exclusão.' }, { status: 400 });
+    }
+
+    await prisma.areaEvento.delete({
+      where: { id: Number(id) }
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Erro ao deletar área:', error);
+    return NextResponse.json({ error: 'Erro ao deletar área de custo. Pode haver lançamentos vinculados a ela.' }, { status: 500 });
+  }
+}
